@@ -33,6 +33,13 @@ export default function ManageClientsPage() {
     async function fetchCompanies() {
         try {
             const res = await fetch("/api/admin/clients")
+
+            if (res.status === 403) {
+                // Redirect unauthorized users to home
+                router.push("/home")
+                return
+            }
+
             const data = await res.json()
 
             if (res.ok) {

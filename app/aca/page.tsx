@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -301,6 +301,26 @@ export default function AcaPage() {
     }
   }
 
+
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          setUser(data.user)
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error)
+      }
+    }
+    fetchUser()
+  }, [])
+
+
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
       <header className="bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg">
@@ -325,17 +345,25 @@ export default function AcaPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-white/80">naveen</span>
+              <span className="text-sm text-white/80">
+                {user?.name || "User"}
+                {user?.tenant_name && <span className="text-white/60 ml-1">({user.tenant_name})</span>}
+              </span>
               <div className="h-4 w-px bg-white/20" />
-              <Button
-                onClick={() => router.push('/admin/companies')}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-white/10"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Add Company
-              </Button>
+
+              {/* Only show Add Company for Super Admins */}
+              {user?.role === 'admin' && (
+                <Button
+                  onClick={() => router.push('/admin/companies')}
+                  variant="ghost"
+                  size="sm"
+                  className="text-white hover:bg-white/10"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Add Company
+                </Button>
+              )}
+
               <Button onClick={handleLogout} variant="ghost" size="sm" className="text-white hover:bg-white/10">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout

@@ -1,29 +1,51 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { verifyToken } from "@/lib/auth"
 
 export async function middleware(request: NextRequest) {
-  const authToken = request.cookies.get("auth-token")
-  const isLoginPage = request.nextUrl.pathname === "/login"
-  const isAuthApi = request.nextUrl.pathname.startsWith("/api/auth")
+  const path = request.nextUrl.pathname
+  console.log(`[Middleware] Processing request for: ${path}`)
 
-  console.log("[v0] Middleware - Path:", request.nextUrl.pathname)
-  console.log("[v0] Middleware - Has auth:", !!authToken)
+  // Retrieve auth token from request cookies
+  const authToken = request.cookies.get("auth-token")?.value
+  console.log(`[Middleware] Auth token present: ${!!authToken}`)
 
+  const isLoginPage = path === "/login"
+  const isAuthApi = path.startsWith("/api/auth")
+
+  // Allow login page and auth APIs without token
   if (isLoginPage || isAuthApi) {
+    console.log(`[Middleware] Allowing public path: ${path}`)
     return NextResponse.next()
   }
 
+  // No token -> redirect to login
   if (!authToken) {
-    console.log("[v0] Middleware - No auth token, redirecting to login")
+    console.log(`[Middleware] No token, redirecting to /login`)
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  if (request.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/home", request.url))
-  }
+  // Verify JWT token
+  try {
+    const payload = await verifyToken(authToken)
+    if (!payload) {
+      console.log(`[Middleware] Invalid token (verify returned null), redirecting to /login`)
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
+    console.log(`[Middleware] Token valid for user: ${payload.email}`)
 
-  console.log("[v0] Middleware - Authenticated, allowing access")
-  return NextResponse.next()
+    // Attach user info to request headers for downstream handlers
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set("x-user-id", payload.user_id)
+    if (payload.tenant_id) requestHeaders.set("x-tenant-id", payload.tenant_id)
+    requestHeaders.set("x-user-role", payload.role)
+
+    // Continue with modified request
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  } catch (e) {
+    console.error(`[Middleware] Token verification threw error:`, e)
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
 }
 
 export const config = {

@@ -1,9 +1,10 @@
 // JWT Utility Functions for Multi-Tenant Authentication
 // ============================================================
 
-import jwt from "jsonwebtoken"
+import { SignJWT, jwtVerify } from "jose"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-me"
+const SECRET_KEY = new TextEncoder().encode(JWT_SECRET)
 
 export interface UserPayload {
     user_id: string
@@ -11,24 +12,28 @@ export interface UserPayload {
     role: "admin" | "employer_admin" | "employer_user"
     tenant_id: string | null
     tenant_name?: string
+    [key: string]: any // Allow extra claims
 }
 
 /**
  * Create a JWT token for a user
  */
-export function createToken(payload: UserPayload): string {
-    return jwt.sign(payload, JWT_SECRET, {
-        expiresIn: "7d", // 7 days
-    })
+export async function createToken(payload: UserPayload): Promise<string> {
+    return await new SignJWT(payload)
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("7d")
+        .sign(SECRET_KEY)
 }
 
 /**
  * Verify and decode a JWT token
  * Returns null if invalid or expired
  */
-export function verifyToken(token: string): UserPayload | null {
+export async function verifyToken(token: string): Promise<UserPayload | null> {
     try {
-        return jwt.verify(token, JWT_SECRET) as UserPayload
+        const { payload } = await jwtVerify(token, SECRET_KEY)
+        return payload as UserPayload
     } catch (error) {
         console.error("[Auth] Token verification failed:", error)
         return null

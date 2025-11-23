@@ -3,6 +3,15 @@ import { createClient } from "@supabase/supabase-js"
 
 export async function GET(req: NextRequest) {
     try {
+        // Security Check: Only allow super admins
+        const userRole = req.headers.get("x-user-role")
+        if (userRole !== "admin") {
+            return NextResponse.json(
+                { error: "Unauthorized. Only super admins can access this resource." },
+                { status: 403 }
+            )
+        }
+
         // Create Supabase client with service role
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,

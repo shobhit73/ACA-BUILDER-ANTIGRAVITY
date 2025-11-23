@@ -32,84 +32,39 @@ export default function PenaltySummaryPage() {
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
 
+  const [user, setUser] = useState<any>(null)
+
   useEffect(() => {
-    async function fetchSummary() {
+    async function fetchUser() {
       try {
-        const data = await getEmployerPenaltySummary(year)
-        setSummary(data)
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          setUser(data.user)
+        }
       } catch (error) {
-        console.error("Failed to fetch penalty summary:", error)
-      } finally {
-        setLoading(false)
+        console.error("Failed to fetch user:", error)
       }
     }
-    fetchSummary()
-  }, [year])
+    fetchUser()
+  }, [])
 
-  async function handleLogout() {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" })
-      router.push("/login")
-      router.refresh()
-    } catch (error) {
-      console.error("Logout failed:", error)
-    }
-  }
+    // ... existing useEffect ...
 
-  const handleDownload = async () => {
-    try {
-      setDownloading(true)
-      const res = await fetch(`/api/penalty-summary?year=${year}`)
-      if (!res.ok) throw new Error("Download failed")
-      const blob = await res.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `Penalty_Summary_by_Employer_${year}.xlsx`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (error) {
-      console.error("Download error:", error)
-    } finally {
-      setDownloading(false)
-    }
-  }
-
-  const Header = () => (
-    <header className="bg-gradient-to-r from-primary to-primary/90 text-white shadow-lg mb-8">
-      <div className="container mx-auto px-4 md:px-6 py-3 md:py-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto">
-            <Button
-              onClick={() => router.push("/aca")}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Back to ACA</span>
-              <span className="sm:hidden">Back</span>
-            </Button>
-            <div className="h-6 w-px bg-white/20 hidden md:block" />
-            <div className="flex items-center gap-2 flex-wrap">
-              <Shield className="h-5 w-5" />
-              <span className="font-semibold text-sm md:text-base">Compliance Suite</span>
-              <span className="text-white/60 hidden sm:inline">/</span>
-              <span className="text-accent text-sm md:text-base">Penalty Summary {year}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 self-end md:self-auto">
-            <span className="text-sm text-white/80">naveen</span>
+    // ... inside Header ...
+    < div className = "flex items-center gap-3 self-end md:self-auto" >
+            <span className="text-sm text-white/80">
+              {user?.name || "User"}
+              {user?.tenant_name && <span className="text-white/60 ml-1">({user.tenant_name})</span>}
+            </span>
             <Button onClick={handleLogout} variant="ghost" size="sm" className="text-white hover:bg-white/10">
               <LogOut className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Logout</span>
             </Button>
-          </div>
-        </div>
-      </div>
-    </header>
+          </div >
+        </div >
+      </div >
+    </header >
   )
 
   if (loading) {

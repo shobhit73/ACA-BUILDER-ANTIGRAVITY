@@ -21,6 +21,23 @@ export default function PenaltyDashboardPage() {
   const [filterType, setFilterType] = useState<"all" | "Penalty A" | "Penalty B">("all")
   const [filterEmployer, setFilterEmployer] = useState<string>("all")
 
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          setUser(data.user)
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error)
+      }
+    }
+    fetchUser()
+  }, [])
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -176,7 +193,10 @@ export default function PenaltyDashboardPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 self-end md:self-auto">
-              <span className="text-sm text-white/80">naveen</span>
+              <span className="text-sm text-white/80">
+                {user?.name || "User"}
+                {user?.tenant_name && <span className="text-white/60 ml-1">({user.tenant_name})</span>}
+              </span>
               <Button onClick={handleLogout} variant="ghost" size="sm" className="text-white hover:bg-white/10">
                 <LogOut className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Logout</span>
@@ -234,18 +254,16 @@ export default function PenaltyDashboardPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                     <button
                       onClick={() => setFilterType("all")}
-                      className={`text-left p-4 rounded-lg transition-all hover:shadow-md ${
-                        filterType === "all" ? "ring-2 ring-primary bg-background" : "bg-background/50"
-                      }`}
+                      className={`text-left p-4 rounded-lg transition-all hover:shadow-md ${filterType === "all" ? "ring-2 ring-primary bg-background" : "bg-background/50"
+                        }`}
                     >
                       <p className="text-sm text-muted-foreground">Total Penalties</p>
                       <p className="text-xl md:text-2xl font-bold text-primary">${totalPenalties.toFixed(2)}</p>
                     </button>
                     <button
                       onClick={() => setFilterType("Penalty A")}
-                      className={`text-left p-4 rounded-lg transition-all hover:shadow-md ${
-                        filterType === "Penalty A" ? "ring-2 ring-red-600 bg-background" : "bg-background/50"
-                      }`}
+                      className={`text-left p-4 rounded-lg transition-all hover:shadow-md ${filterType === "Penalty A" ? "ring-2 ring-red-600 bg-background" : "bg-background/50"
+                        }`}
                     >
                       <p className="text-sm text-muted-foreground">Total Penalty A</p>
                       <p className="text-xl md:text-2xl font-bold text-red-600">${totalPenaltyA.toFixed(2)}</p>
@@ -253,9 +271,8 @@ export default function PenaltyDashboardPage() {
                     </button>
                     <button
                       onClick={() => setFilterType("Penalty B")}
-                      className={`text-left p-4 rounded-lg transition-all hover:shadow-md ${
-                        filterType === "Penalty B" ? "ring-2 ring-orange-600 bg-background" : "bg-background/50"
-                      }`}
+                      className={`text-left p-4 rounded-lg transition-all hover:shadow-md ${filterType === "Penalty B" ? "ring-2 ring-orange-600 bg-background" : "bg-background/50"
+                        }`}
                     >
                       <p className="text-sm text-muted-foreground">Total Penalty B</p>
                       <p className="text-xl md:text-2xl font-bold text-orange-600">${totalPenaltyB.toFixed(2)}</p>
@@ -372,13 +389,12 @@ export default function PenaltyDashboardPage() {
                               </TableCell>
                               <TableCell className="sticky left-[250px] z-10 bg-gray-50 dark:bg-gray-900 w-[110px] min-w-[110px]">
                                 <span
-                                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                                    emp.penaltyType === "Penalty A"
-                                      ? "bg-red-100 text-red-800"
-                                      : emp.penaltyType === "Penalty B"
-                                        ? "bg-orange-100 text-orange-800"
-                                        : "bg-green-100 text-green-800"
-                                  }`}
+                                  className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${emp.penaltyType === "Penalty A"
+                                    ? "bg-red-100 text-red-800"
+                                    : emp.penaltyType === "Penalty B"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-green-100 text-green-800"
+                                    }`}
                                 >
                                   {emp.penaltyType}
                                 </span>
