@@ -326,6 +326,16 @@ export default function AcaPage() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-white/80">naveen</span>
+              <div className="h-4 w-px bg-white/20" />
+              <Button
+                onClick={() => router.push('/admin/companies')}
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/10"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Add Company
+              </Button>
               <Button onClick={handleLogout} variant="ghost" size="sm" className="text-white hover:bg-white/10">
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout

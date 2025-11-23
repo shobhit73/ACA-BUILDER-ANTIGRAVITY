@@ -7,11 +7,9 @@ export async function middleware(request: NextRequest) {
   const isAuthApi = request.nextUrl.pathname.startsWith("/api/auth")
 
   console.log("[v0] Middleware - Path:", request.nextUrl.pathname)
-  console.log("[v0] Middleware - Auth token:", authToken?.value)
-  console.log("[v0] Middleware - Is login page:", isLoginPage)
+  console.log("[v0] Middleware - Has auth:", !!authToken)
 
   if (isLoginPage || isAuthApi) {
-    console.log("[v0] Middleware - Allowing access to login/auth")
     return NextResponse.next()
   }
 
@@ -21,7 +19,6 @@ export async function middleware(request: NextRequest) {
   }
 
   if (request.nextUrl.pathname === "/") {
-    console.log("[v0] Middleware - Redirecting root to home page")
     return NextResponse.redirect(new URL("/home", request.url))
   }
 
