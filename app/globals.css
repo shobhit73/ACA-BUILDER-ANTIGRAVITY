@@ -11,22 +11,22 @@
   --deep-blue: 211 100% 43%;
   --light-cyan: 180 77% 95%;
   --ocean-dark: 200 18% 46%;
-  
+
   --background: oklch(0.98 0.01 180);
   --foreground: oklch(0.2 0.02 200);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.02 200);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.02 200);
-  
+
   /* Primary: Ocean Blue */
   --primary: oklch(0.58 0.15 199);
   --primary-foreground: oklch(0.99 0 0);
-  
+
   /* Secondary: Sea Green */
   --secondary: oklch(0.68 0.12 158);
   --secondary-foreground: oklch(0.99 0 0);
-  
+
   --muted: oklch(0.96 0.01 180);
   --muted-foreground: oklch(0.55 0.02 200);
   --accent: oklch(0.72 0.14 174);
@@ -36,16 +36,16 @@
   --border: oklch(0.92 0.01 180);
   --input: oklch(0.92 0.01 180);
   --ring: oklch(0.58 0.15 199);
-  
+
   /* Charts: Ocean palette */
   --chart-1: oklch(0.58 0.15 199);
   --chart-2: oklch(0.68 0.12 158);
   --chart-3: oklch(0.72 0.14 174);
   --chart-4: oklch(0.48 0.18 211);
   --chart-5: oklch(0.78 0.10 180);
-  
+
   --radius: 0.75rem;
-  
+
   /* Sidebar: Deep Ocean */
   --sidebar: oklch(0.25 0.04 200);
   --sidebar-foreground: oklch(0.95 0.01 180);
@@ -130,29 +130,36 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
-    @apply bg-gradient-to-br from-cyan-50 via-blue-50 to-teal-50 text-foreground;
-    background-attachment: fixed;
+    @apply bg-slate-50 text-foreground;
   }
 }
 
 /* Custom Animations */
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-10px);
   }
 }
 
 @keyframes wave {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(0) translateY(0);
   }
+
   25% {
     transform: translateX(-5px) translateY(-5px);
   }
+
   75% {
     transform: translateX(5px) translateY(5px);
   }
@@ -162,6 +169,7 @@
   0% {
     background-position: -1000px 0;
   }
+
   100% {
     background-position: 1000px 0;
   }
@@ -172,6 +180,7 @@
     transform: scale(0.8);
     opacity: 1;
   }
+
   100% {
     transform: scale(2.4);
     opacity: 0;
@@ -183,6 +192,7 @@
     transform: translateY(20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -190,9 +200,12 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(52, 211, 153, 0.4);
   }
+
   50% {
     box-shadow: 0 0 40px rgba(52, 211, 153, 0.8);
   }

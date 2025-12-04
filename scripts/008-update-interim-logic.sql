@@ -14,6 +14,13 @@ ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS benefit_class VA
 ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS measurement_type VARCHAR(50);
 ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS option_code VARCHAR(50);
 ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS plan_cost NUMERIC(10, 2);
+-- NEW COLUMNS FOR LOGIC UPDATE
+ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS is_eligible_emp BOOLEAN DEFAULT FALSE;
+ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS is_eligible_spouse BOOLEAN DEFAULT FALSE;
+ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS is_eligible_child BOOLEAN DEFAULT FALSE;
+ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS is_eligible_family BOOLEAN DEFAULT FALSE;
+ALTER TABLE aca_employee_monthly_offer ADD COLUMN IF NOT EXISTS emp_only_cost NUMERIC(10, 2);
+
 
 -- aca_employee_monthly_enrollment
 ALTER TABLE aca_employee_monthly_enrollment ADD COLUMN IF NOT EXISTS enrollment_event VARCHAR(50);
@@ -165,33 +172,95 @@ BEGIN
             company_code, employee_id, tax_year, month,
             offer_of_coverage, coverage_tier_offered, plan_code,
             eligible_for_coverage, eligibility_start_date, eligibility_end_date,
-            benefit_class, measurement_type, option_code, plan_cost
+            benefit_class, measurement_type, option_code, plan_cost,
+            is_eligible_emp, is_eligible_spouse, is_eligible_child, is_eligible_family, emp_only_cost
         )
         SELECT 
             ems.company_code,
             ems.employee_id,
             ems.tax_year,
             ems.month,
-            CASE WHEN epe.plan_code IS NOT NULL THEN true ELSE false END as offer_of_coverage,
-            NULL as coverage_tier_offered, -- Coverage tier is typically in enrollment, but if available in eligibility, map it here
-            epe.plan_code,
-            CASE WHEN epe.plan_code IS NOT NULL THEN true ELSE false END as eligible_for_coverage,
-            epe.eligibility_start_date,
-            epe.eligibility_end_date,
-            epe.benefit_class,
-            epe.measurement_type,
-            epe.option_code,
-            epe.plan_cost
+            COALESCE(agg.has_offer, false) as offer_of_coverage,
+            NULL as coverage_tier_offered,
+            agg.plan_code,
+            COALESCE(agg.has_offer, false) as eligible_for_coverage,
+            agg.start_date,
+            agg.end_date,
+            agg.benefit_class,
+            agg.measurement_type,
+            agg.option_code,
+            agg.plan_cost,
+            COALESCE(agg.is_eligible_emp, false),
+            COALESCE(agg.is_eligible_spouse, false),
+            COALESCE(agg.is_eligible_child, false),
+            COALESCE(agg.is_eligible_family, false),
+            agg.emp_only_cost
         FROM aca_employee_monthly_status ems
         LEFT JOIN LATERAL (
-            SELECT * FROM employee_plan_eligibility epe 
+            SELECT 
+                bool_or(true) as has_offer,
+                MAX(epe.plan_code) as plan_code, 
+                MIN(epe.eligibility_start_date) as start_date,
+                MAX(epe.eligibility_end_date) as end_date,
+                
+                -- Flags for coverage tiers using Plan Master Configuration
+                bool_or(
+                    -- Fallback to legacy check if config is missing
+                    (pm.option_emp IS NULL AND (epe.benefit_class ILIKE '%01%' OR epe.benefit_class ILIKE '%EMP%' OR epe.benefit_class = 'Employee'))
+                    OR
+                    -- Configured check
+                    (epe.option_code IS NOT NULL AND (
+                        epe.option_code = pm.option_emp OR 
+                        epe.option_code = pm.option_emp_child OR 
+                        epe.option_code = pm.option_emp_spouse OR 
+                        epe.option_code = pm.option_emp_family
+                    ))
+                ) as is_eligible_emp,
+                
+                bool_or(
+                    (pm.option_emp_spouse IS NULL AND (epe.benefit_class ILIKE '%03%' OR epe.benefit_class ILIKE '%SPOUSE%'))
+                    OR
+                    (epe.option_code IS NOT NULL AND (
+                        epe.option_code = pm.option_emp_spouse OR 
+                        epe.option_code = pm.option_emp_family
+                    ))
+                ) as is_eligible_spouse,
+                
+                bool_or(
+                    (pm.option_emp_child IS NULL AND (epe.benefit_class ILIKE '%02%' OR epe.benefit_class ILIKE '%CHILD%'))
+                    OR
+                    (epe.option_code IS NOT NULL AND (
+                        epe.option_code = pm.option_emp_child OR 
+                        epe.option_code = pm.option_emp_family
+                    ))
+                ) as is_eligible_child,
+                
+                bool_or(
+                    (pm.option_emp_family IS NULL AND (epe.benefit_class ILIKE '%04%' OR epe.benefit_class ILIKE '%FAM%'))
+                    OR
+                    (epe.option_code IS NOT NULL AND epe.option_code = pm.option_emp_family)
+                ) as is_eligible_family,
+                
+                -- Cost (Self Only) - Look for specific option code match
+                MIN(CASE 
+                    WHEN pm.option_emp IS NOT NULL AND epe.option_code = pm.option_emp THEN epe.plan_cost 
+                    WHEN pm.option_emp IS NULL AND (epe.benefit_class ILIKE '%01%' OR epe.benefit_class ILIKE '%EMP%') THEN epe.plan_cost
+                    ELSE NULL 
+                END) as emp_only_cost,
+                
+                -- Best Benefit Class (for display/legacy)
+                (ARRAY_AGG(epe.benefit_class ORDER BY epe.plan_cost DESC))[1] as benefit_class,
+                 -- Best Plan Cost (for display/legacy)
+                (ARRAY_AGG(epe.plan_cost ORDER BY epe.plan_cost ASC))[1] as plan_cost,
+                MAX(epe.measurement_type) as measurement_type,
+                MAX(epe.option_code) as option_code
+            FROM employee_plan_eligibility epe 
+            LEFT JOIN plan_master pm ON epe.plan_code = pm.plan_code
             WHERE epe.company_code = ems.company_code
             AND epe.employee_id = ems.employee_id
             AND epe.eligibility_start_date <= ems.month_end_date
             AND (epe.eligibility_end_date IS NULL OR epe.eligibility_end_date >= ems.month_start_date)
-            ORDER BY epe.eligibility_start_date DESC, epe.created_at DESC
-            LIMIT 1
-        ) epe ON TRUE
+        ) agg ON TRUE
         WHERE ems.tax_year = p_tax_year
         AND ems.month = v_month;
         

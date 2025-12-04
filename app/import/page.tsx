@@ -193,7 +193,7 @@ export default function ImportPage() {
       </div>
 
       {/* Bulk Upload Toolbar */}
-      <Card className="border-cyan-200 bg-gradient-to-r from-cyan-50 to-teal-50">
+      <Card className="border-slate-200 bg-white">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -256,7 +256,6 @@ export default function ImportPage() {
                     handleBulkUpload(filesToUpload)
                   }
                 }}
-                className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600"
                 disabled={bulkUploading || !uploads.some(u => u.status === 'idle' && u.file)}
               >
                 {bulkUploading ? (
@@ -277,7 +276,7 @@ export default function ImportPage() {
             <div className="mt-3">
               <div className="h-2 bg-cyan-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-500 to-teal-500 transition-all duration-300"
+                  className="h-full bg-blue-600 transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
@@ -311,7 +310,7 @@ export default function ImportPage() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
+              <thead className="bg-slate-50 border-b-2 border-slate-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider w-8">
                     #
@@ -412,7 +411,7 @@ export default function ImportPage() {
                           size="sm"
                           onClick={() => handleUpload(fileType.type)}
                           disabled={!upload?.file || upload?.status === "uploading" || upload?.status === "success"}
-                          className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 disabled:opacity-50"
+                          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
                         >
                           {upload?.status === "uploading" ? (
                             <Loader2 className="h-3 w-3 animate-spin" />

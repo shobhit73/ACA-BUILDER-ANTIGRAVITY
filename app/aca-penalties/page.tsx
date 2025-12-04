@@ -19,53 +19,67 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     Loader2,
-    FileSpreadsheet,
-    Calculator,
-    AlertCircle,
-    CheckCircle2,
-    Download,
+    AlertTriangle,
+    DollarSign,
     RefreshCw,
-    Search
+    Search,
+    AlertCircle
 } from "lucide-react"
 import { toast } from "sonner"
 
-interface ACARecord {
+interface PenaltyRecord {
     id: number
-    company_code: string
     employee_id: string
-    tax_year: number
-    month: number
-    line_14_code: string
-    line_15_cost: number | null
-    line_16_code: string | null
-    employee_census: {
-        first_name: string
-        last_name: string
-    }
+    penalty_type: 'A' | 'B'
+    reason: string
+    jan_amount: number
+    feb_amount: number
+    mar_amount: number
+    apr_amount: number
+    may_amount: number
+    jun_amount: number
+    jul_amount: number
+    aug_amount: number
+    sep_amount: number
+    oct_amount: number
+    nov_amount: number
+    dec_amount: number
+    total_amount: number
 }
 
-export default function ACAReportPage() {
+export default function ACAPenaltiesPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [isGenerating, setIsGenerating] = useState(false)
-    const [records, setRecords] = useState<ACARecord[]>([])
+    const [records, setRecords] = useState<PenaltyRecord[]>([])
     const [companies, setCompanies] = useState<{ company_code: string; company_name: string }[]>([])
     const [companyCode, setCompanyCode] = useState("")
     const [taxYear, setTaxYear] = useState("2025")
-    const [stats, setStats] = useState({ totalEmployees: 0, codesGenerated: 0 })
+    const [summary, setSummary] = useState({ totalPenaltyA: 0, totalPenaltyB: 0, grandTotal: 0 })
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [searchQuery, setSearchQuery] = useState("")
 
     useEffect(() => {
+        checkUserRole()
         fetchCompanies()
     }, [])
 
+    const checkUserRole = async () => {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (user && user.user_metadata.role !== "super_admin") {
+            // Redirect regular users to their allowed page
+            window.location.href = "/pdf-1095c"
+        }
+    }
+
     useEffect(() => {
         if (companyCode) {
-            fetchReport()
+            fetchPenalties()
         }
     }, [page, companyCode, taxYear, searchQuery])
 
@@ -73,36 +87,33 @@ export default function ACAReportPage() {
         try {
             const { createClient } = await import("@/lib/supabase/client")
             const supabase = createClient()
-            const { data, error } = await supabase.from("company_details").select("company_code, company_name")
+            const { data } = await supabase.from("company_details").select("company_code, company_name")
 
             if (data && data.length > 0) {
                 setCompanies(data)
-                setCompanyCode(data[0].company_code) // Default to first company
+                setCompanyCode(data[0].company_code)
             }
         } catch (error) {
             console.error("Failed to fetch companies", error)
         }
     }
 
-    const fetchReport = async () => {
+    const fetchPenalties = async () => {
         if (!companyCode) return
         setIsLoading(true)
         try {
             const res = await fetch(
-                `/api/aca-report/list?companyCode=${companyCode}&taxYear=${taxYear}&page=${page}&limit=50&search=${searchQuery}`
+                `/api/aca-penalties?companyCode=${companyCode}&taxYear=${taxYear}&page=${page}&limit=20&search=${searchQuery}`
             )
             const data = await res.json()
             if (data.success) {
                 setRecords(data.data)
+                setSummary(data.summary)
                 setTotalPages(data.pagination.totalPages)
-                setStats({
-                    totalEmployees: data.pagination.total, // Approximation
-                    codesGenerated: data.pagination.total * 3 // 3 codes per record
-                })
             }
         } catch (error) {
-            console.error("Failed to fetch report:", error)
-            toast.error("Failed to load report data")
+            console.error("Failed to fetch penalties:", error)
+            toast.error("Failed to load penalty data")
         } finally {
             setIsLoading(false)
         }
@@ -115,7 +126,7 @@ export default function ACAReportPage() {
         }
         setIsGenerating(true)
         try {
-            const res = await fetch("/api/aca-report/generate", {
+            const res = await fetch("/api/aca-penalties", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ companyCode, taxYear: parseInt(taxYear) }),
@@ -123,10 +134,10 @@ export default function ACAReportPage() {
             const data = await res.json()
 
             if (data.success) {
-                toast.success("ACA Codes Generated Successfully!")
-                fetchReport() // Refresh data
+                toast.success("Penalties Calculated Successfully!")
+                fetchPenalties()
             } else {
-                toast.error(`Generation Failed: ${data.error}`)
+                toast.error(`Calculation Failed: ${data.error}`)
             }
         } catch (error) {
             console.error("Generation error:", error)
@@ -136,11 +147,9 @@ export default function ACAReportPage() {
         }
     }
 
-    const handleDownload = () => {
-        if (!companyCode) return
-        // Trigger download directly
-        window.location.href = `/api/aca-report/download?companyCode=${companyCode}&taxYear=${taxYear}`
-        toast.success("Download started!")
+    const formatCurrency = (amount: number) => {
+        if (!amount || amount === 0) return "-"
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
     }
 
     return (
@@ -149,10 +158,10 @@ export default function ACAReportPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                        ACA Monthly Report
+                        ACA Penalty Dashboard
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Generate and review IRS 1095-C Line 14, 15, and 16 codes.
+                        Monitor potential IRS penalties (Type A & B) based on coverage offers.
                     </p>
                 </div>
 
@@ -188,23 +197,14 @@ export default function ACAReportPage() {
                         {isGenerating ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Generating...
+                                Calculating...
                             </>
                         ) : (
                             <>
-                                <Calculator className="mr-2 h-4 w-4" />
-                                Generate Codes
+                                <AlertTriangle className="mr-2 h-4 w-4" />
+                                Calculate Penalties
                             </>
                         )}
-                    </Button>
-
-                    <Button
-                        variant="outline"
-                        onClick={handleDownload}
-                        className="border-blue-200 hover:bg-blue-50 text-blue-700"
-                    >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download Excel
                     </Button>
                 </div>
             </div>
@@ -213,34 +213,34 @@ export default function ACAReportPage() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Total Records</CardTitle>
-                        <FileSpreadsheet className="h-4 w-4 text-blue-600" />
+                        <CardTitle className="text-sm font-medium text-slate-600">Total Penalty A</CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">{stats.totalEmployees.toLocaleString()}</div>
-                        <p className="text-xs text-slate-500">Monthly records generated</p>
+                        <div className="text-2xl font-bold text-slate-900">{formatCurrency(summary.totalPenaltyA)}</div>
+                        <p className="text-xs text-slate-500">No MEC Offered ($241.67/mo)</p>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Codes Calculated</CardTitle>
-                        <Calculator className="h-4 w-4 text-blue-600" />
+                        <CardTitle className="text-sm font-medium text-slate-600">Total Penalty B</CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-orange-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">{stats.codesGenerated.toLocaleString()}</div>
-                        <p className="text-xs text-slate-500">Line 14, 15, 16 values</p>
+                        <div className="text-2xl font-bold text-slate-900">{formatCurrency(summary.totalPenaltyB)}</div>
+                        <p className="text-xs text-slate-500">Unaffordable Coverage ($362.50/mo)</p>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Status</CardTitle>
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <CardTitle className="text-sm font-medium text-slate-600">Grand Total Liability</CardTitle>
+                        <DollarSign className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">Ready</div>
-                        <p className="text-xs text-slate-500">System operational</p>
+                        <div className="text-2xl font-bold text-slate-900">{formatCurrency(summary.grandTotal)}</div>
+                        <p className="text-xs text-slate-500">Total Potential Exposure</p>
                     </CardContent>
                 </Card>
             </div>
@@ -249,22 +249,22 @@ export default function ACAReportPage() {
             <Card className="border-slate-200 shadow-md overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4 flex flex-row items-center justify-between space-y-0">
                     <div className="space-y-1">
-                        <CardTitle className="text-lg font-semibold text-slate-800">ACA Report Data</CardTitle>
+                        <CardTitle className="text-lg font-semibold text-slate-800">Penalty Details</CardTitle>
                         <CardDescription>
-                            Review calculated codes for each employee.
+                            Detailed breakdown of penalties by employee and month.
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="relative w-72">
                             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search by Name or ID..."
+                                placeholder="Search by ID or Reason..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-8 bg-white border-slate-200 focus-visible:ring-blue-500"
                             />
                         </div>
-                        <Button variant="ghost" size="sm" onClick={fetchReport} disabled={isLoading}>
+                        <Button variant="ghost" size="sm" onClick={fetchPenalties} disabled={isLoading}>
                             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                         </Button>
                     </div>
@@ -275,17 +275,25 @@ export default function ACAReportPage() {
                             <TableHeader className="bg-slate-50">
                                 <TableRow>
                                     <TableHead className="w-[100px]">Emp ID</TableHead>
-                                    <TableHead className="w-[200px]">Name</TableHead>
-                                    <TableHead className="w-[80px]">Month</TableHead>
-                                    <TableHead className="text-center w-[100px]">Line 14 (Offer)</TableHead>
-                                    <TableHead className="text-center w-[100px]">Line 15 (Cost)</TableHead>
-                                    <TableHead className="text-center w-[150px]">Line 16 (Safe Harbor)</TableHead>
+                                    <TableHead className="w-[400px]">Reason</TableHead>
+                                    <TableHead className="text-center w-[80px]">Jan</TableHead>
+                                    <TableHead className="text-center w-[80px]">Feb</TableHead>
+                                    <TableHead className="text-center w-[80px]">Mar</TableHead>
+                                    <TableHead className="text-center w-[80px]">Apr</TableHead>
+                                    <TableHead className="text-center w-[80px]">May</TableHead>
+                                    <TableHead className="text-center w-[80px]">Jun</TableHead>
+                                    <TableHead className="text-center w-[80px]">Jul</TableHead>
+                                    <TableHead className="text-center w-[80px]">Aug</TableHead>
+                                    <TableHead className="text-center w-[80px]">Sep</TableHead>
+                                    <TableHead className="text-center w-[80px]">Oct</TableHead>
+                                    <TableHead className="text-center w-[80px]">Nov</TableHead>
+                                    <TableHead className="text-center w-[80px]">Dec</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
+                                        <TableCell colSpan={14} className="h-24 text-center">
                                             <div className="flex items-center justify-center gap-2 text-muted-foreground">
                                                 <Loader2 className="h-5 w-5 animate-spin" />
                                                 Loading data...
@@ -294,39 +302,41 @@ export default function ACAReportPage() {
                                     </TableRow>
                                 ) : records.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-32 text-center">
+                                        <TableCell colSpan={14} className="h-32 text-center">
                                             <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                                                 <AlertCircle className="h-8 w-8 text-slate-300" />
-                                                <p>No records found. Click "Generate Codes" to calculate.</p>
+                                                <p>No penalties found. Click "Calculate Penalties" to generate.</p>
                                             </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     records.map((record) => (
                                         <TableRow key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <TableCell className="font-medium text-slate-700">{record.employee_id}</TableCell>
-                                            <TableCell>{record.employee_census.last_name}, {record.employee_census.first_name}</TableCell>
-                                            <TableCell>
-                                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-xs font-medium text-slate-600">
-                                                    {record.month}
-                                                </span>
+                                            <TableCell className="font-medium text-slate-700 align-top pt-4">{record.employee_id}</TableCell>
+                                            <TableCell className="align-top pt-4">
+                                                <div className="space-y-1">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${record.penalty_type === 'A' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'
+                                                        }`}>
+                                                        Penalty {record.penalty_type}
+                                                    </span>
+                                                    <div
+                                                        className="text-sm text-slate-600 leading-relaxed"
+                                                        dangerouslySetInnerHTML={{ __html: record.reason }}
+                                                    />
+                                                </div>
                                             </TableCell>
-                                            <TableCell className="text-center">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.line_14_code === '1H' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                                                    }`}>
-                                                    {record.line_14_code || '-'}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-center font-mono text-sm">
-                                                {record.line_15_cost ? `$${record.line_15_cost.toFixed(2)}` : '-'}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.line_16_code === '2C' ? 'bg-emerald-100 text-emerald-800' :
-                                                    record.line_16_code === '2A' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'
-                                                    }`}>
-                                                    {record.line_16_code || '-'}
-                                                </span>
-                                            </TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.jan_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.feb_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.mar_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.apr_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.may_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.jun_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.jul_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.aug_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.sep_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.oct_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.nov_amount)}</TableCell>
+                                            <TableCell className="text-center text-xs pt-4">{formatCurrency(record.dec_amount)}</TableCell>
                                         </TableRow>
                                     ))
                                 )}

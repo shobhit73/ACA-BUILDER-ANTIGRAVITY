@@ -34,8 +34,24 @@ export async function GET(request: NextRequest) {
             .eq("tax_year", taxYear)
 
         if (search) {
-            // Search by Employee ID, First Name, or Last Name
-            query = query.or(`employee_id.ilike.%${search}%,employee_census.first_name.ilike.%${search}%,employee_census.last_name.ilike.%${search}%`)
+            // Step 1: Find matching employees in census
+            const { data: matchingEmployees } = await supabase
+                .from('employee_census')
+                .select('employee_id')
+                .or(`employee_id.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
+                .eq('company_code', companyCode)
+
+            if (matchingEmployees && matchingEmployees.length > 0) {
+                const empIds = matchingEmployees.map(e => e.employee_id)
+                query = query.in('employee_id', empIds)
+            } else {
+                // No matches found, return empty result
+                return NextResponse.json({
+                    success: true,
+                    data: [],
+                    pagination: { page, limit, total: 0, totalPages: 0 }
+                })
+            }
         }
 
         const { data, error, count } = await query

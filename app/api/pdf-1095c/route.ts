@@ -47,6 +47,21 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Employee not found" }, { status: 404 })
         }
 
+        // RBAC Check: Ensure user is authorized to view this employee
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+        }
+
+        const isSuperAdmin = user.user_metadata.role === "super_admin"
+        if (!isSuperAdmin) {
+            // Regular users can only download their own PDF
+            if (!employee.email || employee.email.toLowerCase() !== user.email?.toLowerCase()) {
+                console.warn(`[PDF API] Unauthorized access attempt by ${user.email} for employee ${employeeId}`)
+                return NextResponse.json({ success: false, error: "Forbidden: You can only access your own documents" }, { status: 403 })
+            }
+        }
+
         // 3. Fetch Employee Address
         console.log("[PDF API] Fetching employee address...")
         const { data: address } = await supabase

@@ -347,6 +347,7 @@ export async function POST(request: NextRequest) {
                     : null,
                   p_pay_frequency: transformPayFrequency(row["Pay Frequency"]),
                   p_employment_type_code: transformEmploymentType(row["Employment Type Code"]),
+                  p_email: row["Email"] || null,
                   p_add_name: row["Add Name"] || null,
                   p_add_date: parseDate(row["Add Date"]),
                 }),

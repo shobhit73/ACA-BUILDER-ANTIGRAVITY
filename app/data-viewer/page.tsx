@@ -134,7 +134,7 @@ export default function DataViewerPage() {
         <div className="col-span-3">
           <Card>
             <CardContent className="p-0">
-              <div className="p-3 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+              <div className="p-3 border-b bg-slate-50">
                 <h3 className="font-semibold text-sm text-slate-700 flex items-center gap-2">
                   <Database className="h-4 w-4" />
                   Database Tables
@@ -155,7 +155,7 @@ export default function DataViewerPage() {
                       <button
                         key={table.name}
                         onClick={() => handleTableSelect(table.name)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-cyan-50 transition-colors flex items-center justify-between ${selectedTable === table.name ? "bg-cyan-100 border-l-2 border-cyan-500" : ""
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between ${selectedTable === table.name ? "bg-blue-100 border-l-2 border-blue-500" : ""
                           }`}
                       >
                         <div className="flex-1 min-w-0">
@@ -182,7 +182,7 @@ export default function DataViewerPage() {
         {/* Right Content - Table Data */}
         <div className="col-span-9">
           {!selectedTable ? (
-            <Card className="border-cyan-200 bg-gradient-to-br from-cyan-50 to-teal-50">
+            <Card className="border-slate-200 bg-white">
               <CardContent className="p-12 text-center">
                 <TableIcon className="h-16 w-16 text-cyan-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">Select a Table</h3>
@@ -193,7 +193,7 @@ export default function DataViewerPage() {
             <Card>
               <CardContent className="p-0">
                 {/* Table Header */}
-                <div className="p-4 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex items-center justify-between">
+                <div className="p-4 border-b bg-slate-50 flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold text-slate-900">{selectedTableInfo?.label}</h3>
                     <p className="text-xs text-slate-600 mt-1">{selectedTableInfo?.description}</p>

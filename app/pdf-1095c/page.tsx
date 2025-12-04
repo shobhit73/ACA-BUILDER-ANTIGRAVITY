@@ -53,38 +53,68 @@ export default function PDF1095CPage() {
     const [searchQuery, setSearchQuery] = useState("")
     const [currentPage, setCurrentPage] = useState(1)
 
+    const [user, setUser] = useState<{ role: string; email: string } | null>(null)
+
     useEffect(() => {
-        fetchCompanies()
+        fetchUserAndCompanies()
     }, [])
 
-    useEffect(() => {
-        if (companyCode) {
-            fetchEmployees()
-        }
-    }, [companyCode, taxYear])
-
-    const fetchCompanies = async () => {
+    const fetchUserAndCompanies = async () => {
         const supabase = createClient()
-        const { data, error } = await supabase.from("company_details").select("company_code, company_name")
+        const { data: { user } } = await supabase.auth.getUser()
 
-        if (data && data.length > 0) {
-            setCompanies(data)
-            setCompanyCode(data[0].company_code)
+        if (user) {
+            const role = user.user_metadata.role === "super_admin" ? "System Admin" : "User"
+            setUser({ role, email: user.email || "" })
+
+            // Only fetch companies if admin
+            if (role === "System Admin") {
+                const { data } = await supabase.from("company_details").select("company_code, company_name")
+                if (data && data.length > 0) {
+                    setCompanies(data)
+                    setCompanyCode(data[0].company_code)
+                }
+            } else {
+                // For regular user, we might need to fetch their company code from census or just default
+                // For now, let's assume we can find them by email across all companies or just fetch their record
+                // We'll handle this in fetchEmployees
+            }
         }
     }
 
+    useEffect(() => {
+        if (user) {
+            fetchEmployees()
+        }
+    }, [user, companyCode, taxYear])
+
     const fetchEmployees = async () => {
+        if (!user) return
         setIsLoading(true)
         try {
             const supabase = createClient()
-            const { data, error } = await supabase
+            let query = supabase
                 .from("employee_census")
-                .select("employee_id, first_name, last_name, ssn")
-                .eq("company_code", companyCode)
-                .order("employee_id", { ascending: true })
+                .select("employee_id, first_name, last_name, ssn, company_code")
+
+            if (user.role === "System Admin") {
+                if (companyCode) {
+                    query = query.eq("company_code", companyCode)
+                }
+                query = query.order("employee_id", { ascending: true })
+            } else {
+                // Regular user: only see own record
+                query = query.eq("email", user.email)
+            }
+
+            const { data, error } = await query
 
             if (data) {
                 setEmployees(data)
+                // If regular user, set company code from their record for PDF generation
+                if (user.role !== "System Admin" && data.length > 0) {
+                    setCompanyCode(data[0].company_code)
+                }
             }
         } catch (error) {
             console.error("Failed to fetch employees:", error)
@@ -154,25 +184,27 @@ export default function PDF1095CPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">
                         1095-C PDF Generator
                     </h1>
                     <p className="text-muted-foreground mt-1">Generate IRS Form 1095-C for employees</p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Select value={companyCode} onValueChange={setCompanyCode}>
-                        <SelectTrigger className="w-[200px] bg-white">
-                            <SelectValue placeholder="Select Company" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {companies.map((company) => (
-                                <SelectItem key={company.company_code} value={company.company_code}>
-                                    {company.company_name} ({company.company_code})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    {user?.role === "System Admin" && (
+                        <Select value={companyCode} onValueChange={setCompanyCode}>
+                            <SelectTrigger className="w-[200px] bg-white">
+                                <SelectValue placeholder="Select Company" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {companies.map((company) => (
+                                    <SelectItem key={company.company_code} value={company.company_code}>
+                                        {company.company_name} ({company.company_code})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
 
                     <Select value={taxYear} onValueChange={setTaxYear}>
                         <SelectTrigger className="w-[120px] bg-white">
@@ -188,36 +220,36 @@ export default function PDF1095CPage() {
 
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-3">
-                <Card className="bg-gradient-to-br from-white to-blue-50 border-blue-100 shadow-sm">
+                <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-blue-900">Total Employees</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-600">Total Employees</CardTitle>
                         <Users className="h-4 w-4 text-blue-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-blue-700">{employees.length}</div>
-                        <p className="text-xs text-blue-600/80">Ready for PDF generation</p>
+                        <div className="text-2xl font-bold text-slate-900">{employees.length}</div>
+                        <p className="text-xs text-slate-500">Ready for PDF generation</p>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-white to-emerald-50 border-emerald-100 shadow-sm">
+                <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-emerald-900">Status</CardTitle>
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        <CardTitle className="text-sm font-medium text-slate-600">Status</CardTitle>
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-700">Ready</div>
-                        <p className="text-xs text-emerald-600/80">All systems operational</p>
+                        <div className="text-2xl font-bold text-slate-900">Ready</div>
+                        <p className="text-xs text-slate-500">All systems operational</p>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-white to-purple-50 border-purple-100 shadow-sm">
+                <Card className="bg-white border-slate-200 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-purple-900">Form</CardTitle>
-                        <FileText className="h-4 w-4 text-purple-600" />
+                        <CardTitle className="text-sm font-medium text-slate-600">Form</CardTitle>
+                        <FileText className="h-4 w-4 text-blue-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-purple-700">1095-C</div>
-                        <p className="text-xs text-purple-600/80">IRS {taxYear}</p>
+                        <div className="text-2xl font-bold text-slate-900">1095-C</div>
+                        <p className="text-xs text-slate-500">IRS {taxYear}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -240,15 +272,17 @@ export default function PDF1095CPage() {
                             List of employees from census. Dependents are included in the generated PDF.
                         </CardDescription>
                     </div>
-                    <div className="relative w-72">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by Name, ID or SSN..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-8 bg-white border-slate-200 focus-visible:ring-blue-500"
-                        />
-                    </div>
+                    {user?.role === "System Admin" && (
+                        <div className="relative w-72">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search by Name, ID or SSN..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-8 bg-white border-slate-200 focus-visible:ring-blue-500"
+                            />
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
@@ -340,31 +374,8 @@ export default function PDF1095CPage() {
                             </div>
                         </div>
                     )}
-                </CardContent>                                                    disabled={downloadingIds.has(emp.employee_id)}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-                                                >
-                {downloadingIds.has(emp.employee_id) ? (
-                    <>
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                        Generating...
-                    </>
-                ) : (
-                    <>
-                        <Download className="mr-2 h-3 w-3" />
-                        Download PDF
-                    </>
-                )}
-            </Button>
-        </TableCell>
-                                        </TableRow >
-                                    ))
-                                )
-}
-                            </TableBody >
-                        </Table >
-                    </div >
-                </CardContent >
-            </Card >
-        </div >
+                </CardContent>
+            </Card>
+        </div>
     )
 }

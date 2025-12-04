@@ -86,19 +86,19 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="text-right px-4 py-2 bg-purple-50 rounded-lg border border-purple-100">
-            <div className="text-sm font-medium text-purple-900">Interim Tables</div>
-            <div className="text-xs text-purple-600">Monthly Tracking</div>
+          <div className="text-right px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
+            <div className="text-sm font-medium text-blue-900">Interim Tables</div>
+            <div className="text-xs text-blue-600">Monthly Tracking</div>
           </div>
         </div>
       </div>
 
       {/* Generate Section */}
-      <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+      <Card className="border-slate-200 bg-white">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <FileOutput className="h-5 w-5 text-purple-600" />
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <FileOutput className="h-5 w-5 text-blue-600" />
             </div>
             <div>
               <CardTitle className="text-lg text-slate-900">Generate Tables</CardTitle>
@@ -110,7 +110,7 @@ export default function ReportsPage() {
           <div className="grid gap-6 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="companyCode" className="flex items-center gap-2 text-slate-700">
-                <Building2 className="h-4 w-4 text-purple-500" />
+                <Building2 className="h-4 w-4 text-blue-500" />
                 Company Code
               </Label>
               <Input
@@ -120,12 +120,12 @@ export default function ReportsPage() {
                 onChange={(e) => setCompanyCode(e.target.value)}
                 placeholder="e.g., COMP001"
                 disabled={isGenerating}
-                className="border-slate-200 focus:border-purple-500 focus:ring-purple-500"
+                className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="taxYear" className="flex items-center gap-2 text-slate-700">
-                <Calendar className="h-4 w-4 text-purple-500" />
+                <Calendar className="h-4 w-4 text-blue-500" />
                 Tax Year
               </Label>
               <Input
@@ -137,7 +137,7 @@ export default function ReportsPage() {
                 min="2000"
                 max="2100"
                 disabled={isGenerating}
-                className="border-slate-200 focus:border-purple-500 focus:ring-purple-500"
+                className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function ReportsPage() {
             <Button
               onClick={handleGenerate}
               disabled={isGenerating || !taxYear || !companyCode}
-              className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 min-w-[150px]"
+              className="bg-blue-600 hover:bg-blue-700 min-w-[150px] text-white"
             >
               {isGenerating ? (
                 <>
@@ -167,9 +167,9 @@ export default function ReportsPage() {
           )}
 
           {isGenerated && (
-            <Alert className="border-teal-200 bg-teal-50 animate-slide-in-up">
-              <CheckCircle className="h-4 w-4 text-teal-600" />
-              <AlertDescription className="text-teal-800 font-medium">
+            <Alert className="border-green-200 bg-green-50 animate-slide-in-up">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 font-medium">
                 Interim tables generated successfully! You can now download the files below.
               </AlertDescription>
             </Alert>
@@ -199,11 +199,11 @@ export default function ReportsPage() {
             color: "teal",
           },
         ].map((file) => (
-          <Card key={file.name} className={`hover:shadow-md transition-shadow border-${file.color}-200`}>
+          <Card key={file.name} className="hover:shadow-md transition-shadow border-slate-200 hover:border-blue-300">
             <CardContent className="p-6">
               <div className="flex flex-col h-full justify-between gap-4">
                 <div>
-                  <h3 className={`font-semibold text-${file.color}-900`}>{file.title}</h3>
+                  <h3 className="font-semibold text-slate-900">{file.title}</h3>
                   <p className="text-sm text-slate-600 mt-1">{file.description}</p>
                 </div>
                 <Button
@@ -211,7 +211,7 @@ export default function ReportsPage() {
                   size="sm"
                   onClick={() => handleDownload(file.name)}
                   disabled={downloadingFile === file.name || !companyCode}
-                  className={`w-full border-${file.color}-200 hover:bg-${file.color}-50 text-${file.color}-700`}
+                  className="w-full border-slate-300 hover:bg-slate-50 text-slate-700"
                 >
                   {downloadingFile === file.name ? (
                     <>
