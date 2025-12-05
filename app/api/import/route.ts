@@ -202,6 +202,18 @@ function normalizeEmployeeId(employeeId: string | undefined | null): string {
   return numeric || ""
 }
 
+/**
+ * POST /api/import
+ * 
+ * Handles bulk data import from CSV files.
+ * Features:
+ * - Validates file type and content
+ * - Parses CSV with automatic type conversion
+ * - Validates required fields and data formats per row
+ * - Batches database operations for performance
+ * - Retries failed operations
+ * - Returns detailed error report for failed rows
+ */
 export async function POST(request: NextRequest) {
   const importStartTime = performance.now()
   console.log("[v0] ========== CSV IMPORT STARTED ==========")

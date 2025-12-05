@@ -1,5 +1,16 @@
 "use client"
 
+/**
+ * Sidebar Component
+ * 
+ * Primary navigation component for the application.
+ * Handles:
+ * - User authentication state display
+ * - Module-based navigation filtering (RBAC)
+ * - Sub-menu rendering for complex modules
+ * - Logout functionality
+ */
+
 import { useState, useEffect } from "react"
 import NextImage from "next/image"
 import logo from "@/app/assets/logo.png"

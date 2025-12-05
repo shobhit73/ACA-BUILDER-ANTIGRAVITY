@@ -50,6 +50,8 @@ A comprehensive Next.js application for managing IRS Form 1095-C compliance. Thi
 │   ├── settings/         # User & Company Management
 │   └── page.tsx          # Root Redirect Logic
 ├── components/           # Reusable UI Components
+│   ├── layout/           # Layout components (Sidebar, Navigation)
+│   └── ui/               # Shadcn UI primitives
 ├── lib/                  # Utilities (Supabase Client, Helpers)
 ├── public/               # Static Assets (PDF Templates)
 └── scripts/              # Database Migration Scripts
@@ -82,11 +84,11 @@ A comprehensive Next.js application for managing IRS Form 1095-C compliance. Thi
 ## 📖 Usage Guide
 
 ### Admin Workflow
-1. **Import Data**: Upload Census and Plan data.
-2. **Generate Reports**: Run interim processing.
-3. **Calculate Codes**: Generate ACA codes in the Report module.
-4. **Analyze Penalties**: Check the Penalty Dashboard for risks.
-5. **Manage Users**: Invite employees to the portal.
+1. **Import Data**: Upload Census and Plan data via the "Import Data" module.
+2. **Generate Reports**: Run interim processing to populate monthly tables.
+3. **Calculate Codes**: Generate ACA codes in the "ACA Report" module.
+4. **Analyze Penalties**: Check the "ACA Penalties" dashboard for potential risks.
+5. **Manage Users**: Invite employees to the portal via "Settings".
 
 ### Employee Workflow
 1. **Login**: Access the portal via email invite.
@@ -97,4 +99,4 @@ A comprehensive Next.js application for managing IRS Form 1095-C compliance. Thi
 
 ## 📄 References
 
-- **PDF Field Mapping**: See `PDF_FIELD_REFERENCE (1).md` for detailed coordinate mappings of the 1095-C form.
+- **PDF Field Mapping**: See `PDF_FIELD_REFERENCE.md` for detailed coordinate mappings of the 1095-C form.
