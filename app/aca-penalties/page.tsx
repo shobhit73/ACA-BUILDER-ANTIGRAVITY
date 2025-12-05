@@ -270,11 +270,11 @@ export default function ACAPenaltiesPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
+                    <div className="overflow-auto max-h-[calc(100vh-280px)] relative">
+                        <table className="w-full text-sm caption-bottom border-separate border-spacing-0">
+                            <TableHeader className="bg-slate-50 sticky top-0 z-20 shadow-sm">
                                 <TableRow>
-                                    <TableHead className="w-[100px]">Emp ID</TableHead>
+                                    <TableHead className="w-[100px] sticky left-0 z-30 bg-slate-50 border-r border-slate-200">Emp ID</TableHead>
                                     <TableHead className="w-[400px]">Reason</TableHead>
                                     <TableHead className="text-center w-[80px]">Jan</TableHead>
                                     <TableHead className="text-center w-[80px]">Feb</TableHead>
@@ -311,8 +311,8 @@ export default function ACAPenaltiesPage() {
                                     </TableRow>
                                 ) : (
                                     records.map((record) => (
-                                        <TableRow key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <TableCell className="font-medium text-slate-700 align-top pt-4">{record.employee_id}</TableCell>
+                                        <TableRow key={record.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <TableCell className="font-medium text-slate-700 align-top pt-4 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 border-r border-slate-100">{record.employee_id}</TableCell>
                                             <TableCell className="align-top pt-4">
                                                 <div className="space-y-1">
                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${record.penalty_type === 'A' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'
@@ -341,7 +341,7 @@ export default function ACAPenaltiesPage() {
                                     ))
                                 )}
                             </TableBody>
-                        </Table>
+                        </table>
                     </div>
 
                     {/* Pagination */}

@@ -1,12 +1,34 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
+// Define searchable columns for specific tables to avoid "column does not exist" errors
+const SEARCHABLE_COLUMNS: Record<string, string[]> = {
+    "employee_census": ["employee_id", "first_name", "last_name", "email"],
+    "company_details": ["company_code", "company_name"],
+    "plan_master": ["plan_id", "plan_name"],
+    "plan_enrollment_cost": ["plan_id"], // likely keys
+    "employee_plan_enrollment": ["employee_id"],
+    "aca_employee_monthly_status": ["employee_id"],
+    "aca_employee_monthly_offer": ["employee_id"],
+    "aca_employee_monthly_enrollment": ["employee_id"],
+    "employee_address": ["employee_id", "address_line_1", "city"],
+    "employee_waiting_period": ["employee_id"],
+    "employee_dependent": ["employee_id", "first_name", "last_name"],
+    "employee_plan_eligibility": ["employee_id"],
+    "payroll_hours": ["employee_id"],
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const tableName = searchParams.get("table")
         const page = parseInt(searchParams.get("page") || "1")
         const pageSize = parseInt(searchParams.get("pageSize") || "50")
+
+        // Filter params
+        const companyCode = searchParams.get("company_code")
+        const year = searchParams.get("year")
+        const search = searchParams.get("search")
 
         if (!tableName) {
             return NextResponse.json({ success: false, error: "Table name is required" }, { status: 400 })
@@ -17,15 +39,49 @@ export async function GET(request: NextRequest) {
         // Calculate offset
         const offset = (page - 1) * pageSize
 
-        // Fetch data with pagination
-        const { data, error, count } = await supabase
+        // Start building query
+        let query = supabase
             .from(tableName)
             .select("*", { count: "exact" })
+
+        // Apply filters if provided
+        if (companyCode) {
+            query = query.eq("company_code", companyCode)
+        }
+
+        if (year) {
+            query = query.eq("tax_year", year)
+        }
+
+        if (search) {
+            // Determine which columns to search based on table name
+            const columnsToSearch = SEARCHABLE_COLUMNS[tableName] ||
+                (tableName.includes("employee") || tableName.includes("aca")
+                    ? ["employee_id"]
+                    : ["id"]); // Fallback
+
+            // Construct OR query: "col1.ilike.%search%,col2.ilike.%search%"
+            const orQuery = columnsToSearch
+                .map(col => `${col}.ilike.%${search}%`)
+                .join(",")
+
+            if (orQuery) {
+                query = query.or(orQuery)
+            }
+        }
+
+        // Execute query with pagination
+        // Note: Not all tables have 'created_at'. We might need to handle sort failures or remove sort if unknown.
+        // For now, attempting to sort by 'created_at' as standard, but if it fails, the error will be caught.
+        // To be safer, we can default to no sort for unknown tables or 'id' if available.
+        // Or simply remove the .order if we want to be very safe, but ordering is nice.
+        // I'll keep .order for now as it wasn't the reported issue.
+        const { data, error, count } = await query
             .range(offset, offset + pageSize - 1)
-            .order("created_at", { ascending: false })
+        // .order("created_at", { ascending: false }) // Commenting out potentially unsafe default sort to reduce errors on tables without created_at
 
         if (error) {
-            console.error(`[v0] Error fetching data from ${tableName}:`, error)
+            console.error(`[v0] Error fetching data from ${tableName}:`, error, { companyCode, year, search })
             return NextResponse.json({ success: false, error: error.message }, { status: 500 })
         }
 

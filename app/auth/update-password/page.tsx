@@ -3,11 +3,10 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, KeyRound } from "lucide-react"
+import { Loader2, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
 
 export default function UpdatePasswordPage() {
@@ -57,19 +56,40 @@ export default function UpdatePasswordPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <Card className="w-full max-w-md border-slate-200 shadow-lg">
-                <CardHeader className="space-y-1 text-center">
-                    <div className="flex justify-center mb-4">
-                        <div className="p-3 bg-blue-100 rounded-full">
-                            <KeyRound className="h-6 w-6 text-blue-600" />
-                        </div>
+        <div className="min-h-screen w-full flex">
+            {/* Left Side - Branding & Visuals */}
+            <div className="hidden lg:flex w-1/2 bg-slate-900 relative flex-col justify-between p-12 text-white">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
+                <div className="relative z-10">
+                    <div className="flex items-center gap-2 text-lg font-medium">
+                        <ShieldCheck className="h-6 w-6" />
+                        <span>ACA Compliance Suite</span>
                     </div>
-                    <CardTitle className="text-2xl font-bold text-slate-900">Set Password</CardTitle>
-                    <CardDescription>Please set a password for your account</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleUpdatePassword} className="space-y-4">
+                </div>
+                <div className="relative z-10 space-y-6">
+                    <h1 className="text-4xl font-bold tracking-tight leading-tight">
+                        Secure your account to get started.
+                    </h1>
+                    <p className="text-slate-300 text-lg">
+                        Set a strong password to protect your sensitive compliance data and access the full suite of tools.
+                    </p>
+                </div>
+                <div className="relative z-10 text-sm text-slate-400">
+                    &copy; 2025 ACA Builder Inc. All rights reserved.
+                </div>
+            </div>
+
+            {/* Right Side - Password Form */}
+            <div className="flex-1 flex items-center justify-center p-8 bg-white">
+                <div className="w-full max-w-sm space-y-8">
+                    <div className="space-y-2 text-center lg:text-left">
+                        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Set Password</h2>
+                        <p className="text-slate-500">
+                            Please create a new password for your account.
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleUpdatePassword} className="space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="password">New Password</Label>
                             <Input
@@ -78,7 +98,7 @@ export default function UpdatePasswordPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="border-slate-200 focus:border-blue-500"
+                                className="h-11 border-slate-200 focus:border-slate-900 focus:ring-slate-900"
                             />
                         </div>
                         <div className="space-y-2">
@@ -89,12 +109,13 @@ export default function UpdatePasswordPage() {
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
-                                className="border-slate-200 focus:border-blue-500"
+                                className="h-11 border-slate-200 focus:border-slate-900 focus:ring-slate-900"
                             />
                         </div>
+
                         <Button
                             type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                            className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-medium transition-colors"
                             disabled={isLoading}
                         >
                             {isLoading ? (
@@ -107,8 +128,8 @@ export default function UpdatePasswordPage() {
                             )}
                         </Button>
                     </form>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     )
 }

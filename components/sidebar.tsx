@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import NextImage from "next/image"
+import logo from "@/app/assets/logo.png"
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -9,47 +11,63 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
-const navigation = [
+type ModuleCode =
+  | "import_data"
+  | "view_data"
+  | "plan_configuration"
+  | "generate_reports"
+  | "aca_report"
+  | "pdf_1095c"
+  | "aca_penalties"
 
+const navigation = [
   {
     name: "Import Data",
     href: "/import",
     icon: Upload,
+    moduleCode: "import_data" as ModuleCode,
   },
   {
     name: "View Data",
     href: "/data-viewer",
     icon: Database,
+    moduleCode: "view_data" as ModuleCode,
   },
   {
     name: "Generate Reports",
     href: "/reports",
     icon: FileOutput,
+    moduleCode: "generate_reports" as ModuleCode,
   },
   {
     name: "ACA Report",
     href: "/aca-report",
     icon: Calculator,
+    moduleCode: "aca_report" as ModuleCode,
   },
   {
     name: "1095-C PDFs",
     href: "/pdf-1095c",
     icon: FileText,
+    moduleCode: "pdf_1095c" as ModuleCode,
   },
   {
     name: "Plan Configuration",
     href: "/plan-configuration",
     icon: Sliders,
+    moduleCode: "plan_configuration" as ModuleCode,
   },
   {
     name: "ACA Penalties",
     href: "/aca-penalties",
     icon: AlertTriangle,
+    moduleCode: "aca_penalties" as ModuleCode,
   },
   {
     name: "Settings",
     href: "/settings",
     icon: Settings,
+    moduleCode: null, // Always visible
   },
 ]
 
@@ -57,18 +75,58 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [user, setUser] = useState<{ name: string; role: string } | null>(null)
+  const [user, setUser] = useState<{ name: string; role: string; companyCode?: string } | null>(null)
+  const [allowedModules, setAllowedModules] = useState<ModuleCode[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const name = user.user_metadata.first_name || user.email?.split("@")[0] || "User"
-        const role = user.user_metadata.role === "super_admin" ? "System Admin" : "User"
-        setUser({ name, role })
+    const getUserAndPermissions = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const name = user.user_metadata.first_name || user.email?.split("@")[0] || "User"
+          const role = user.user_metadata.role === "super_admin" ? "System Admin" : "User"
+
+          let companyCode = null
+          let modules: ModuleCode[] = []
+
+          if (role === "System Admin") {
+            // Super Admin has access to everything
+            modules = navigation.map(n => n.moduleCode).filter((c): c is ModuleCode => c !== null)
+          } else {
+            // Fetch user's company
+            const { data: mapping } = await supabase
+              .from("user_company_mapping")
+              .select("company_code")
+              .eq("user_id", user.id)
+              .single()
+
+            if (mapping) {
+              companyCode = mapping.company_code
+
+              // Fetch allowed modules
+              const { data: companyModules } = await supabase
+                .from("company_modules")
+                .select("module_code")
+                .eq("company_code", companyCode)
+                .eq("is_enabled", true)
+
+              if (companyModules) {
+                modules = companyModules.map((m: any) => m.module_code)
+              }
+            }
+          }
+
+          setUser({ name, role, companyCode: companyCode || undefined })
+          setAllowedModules(modules)
+        }
+      } catch (error) {
+        console.error("Error fetching user permissions:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
-    getUser()
+    getUserAndPermissions()
   }, [supabase])
 
   const handleSignOut = async () => {
@@ -82,29 +140,45 @@ export function Sidebar() {
     }
   }
 
+  if (isLoading) {
+    return <div className="w-64 bg-slate-900" /> // Loading state
+  }
+
   return (
     <div className="flex h-full w-64 flex-col bg-slate-900 text-white shadow-xl">
       {/* Logo/Header */}
       <div className="flex h-16 items-center gap-2 border-b border-slate-800 px-6 bg-slate-900">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 shadow-sm">
-          <span className="font-mono text-base font-bold text-white">AC</span>
-        </div>
+        <NextImage src={logo} alt="Compliance Suite Logo" className="h-8 w-8" />
         <div>
-          <h1 className="font-bold text-lg leading-none text-white">ACA Builder</h1>
+          <h1 className="font-bold text-lg leading-none text-white">Compliance Suite</h1>
           <p className="text-xs text-slate-400">1095-C Management</p>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         {user && navigation
           .filter(item => {
-            if (user.role === "System Admin") return true
-            if (user.role === "User") return item.name === "1095-C PDFs"
-            return false
+            if (!item.moduleCode) return true // Always show items without module code (e.g. Settings)
+            return allowedModules.includes(item.moduleCode)
           })
           .map((item) => {
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href ||
+              (item.moduleCode === 'view_data' && pathname.startsWith('/data-viewer')) ||
+              (item.moduleCode === 'generate_reports' && (pathname === '/reports')) // data-viewer check handled in submenu for highlight
+
+            if (item.moduleCode === 'view_data') {
+              return (
+                <ViewDataSubMenu key={item.name} item={item} isActive={isActive} />
+              )
+            }
+
+            if (item.moduleCode === 'generate_reports') {
+              return (
+                <GenerateReportsSubMenu key={item.name} item={item} isActive={isActive} />
+              )
+            }
+
             return (
               <Link
                 key={item.name}
@@ -124,7 +198,7 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-slate-800 p-4 bg-slate-900 space-y-4">
+      <div className="border-t border-slate-800 p-4 bg-slate-900 space-y-4 shrink-0">
         {user && (
           <div className="flex items-center gap-3 px-2 mb-2">
             <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
@@ -133,6 +207,7 @@ export function Sidebar() {
             <div className="flex flex-col">
               <span className="text-sm font-medium text-white">{user.name}</span>
               <span className="text-xs text-slate-400">{user.role}</span>
+              {user.companyCode && <span className="text-[10px] text-slate-500">{user.companyCode}</span>}
             </div>
           </div>
         )}
@@ -148,6 +223,152 @@ export function Sidebar() {
           <p className="mt-1">© 2025 ACA Builder</p>
         </div>
       </div>
+    </div>
+  )
+}
+
+import { TABLES } from "@/lib/constants/tables"
+import { ChevronDown, ChevronRight as ChevronRightIcon, LayoutDashboard, Table as TableIcon } from "lucide-react"
+
+function ViewDataSubMenu({ item, isActive }: { item: any, isActive: boolean }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+  const currentTable = searchParams.get('table')
+
+  // Close accordion when navigating away or if not active
+  useEffect(() => {
+    if (!isActive) {
+      setIsOpen(false)
+    }
+  }, [pathname, isActive])
+
+  const groupedTables = TABLES.reduce((acc, table) => {
+    if (!acc[table.group]) {
+      acc[table.group] = []
+    }
+    acc[table.group].push(table)
+    return acc
+  }, {} as Record<string, typeof TABLES>)
+
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200",
+          isActive
+            ? "bg-blue-600 text-white shadow-sm"
+            : "text-slate-300 hover:bg-slate-800 hover:text-white",
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <item.icon className={cn("h-5 w-5")} />
+          {item.name}
+        </div>
+        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+      </button>
+
+      {isOpen && (
+        <div className="pl-4 space-y-4 py-2">
+          {Object.entries(groupedTables).map(([group, tables]) => (
+            <div key={group} className="space-y-1">
+              <h4 className="text-[10px] uppercase font-bold text-slate-500 px-2 mb-1">{group}</h4>
+              {tables.map(table => (
+                <Link
+                  key={table.name}
+                  href={`/data-viewer?table=${table.name}`}
+                  className={cn(
+                    "block rounded-md px-2 py-1.5 text-xs transition-colors",
+                    currentTable === table.name
+                      ? "bg-slate-800 text-blue-400 font-medium"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                  )}
+                >
+                  {table.label}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GenerateReportsSubMenu({ item, isActive }: { item: any, isActive: boolean }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+  const currentTable = searchParams.get('table')
+
+  const reportTables = [
+    { label: "Monthly Status", name: "aca_employee_monthly_status" },
+    { label: "Monthly Offer", name: "aca_employee_monthly_offer" },
+    { label: "Monthly Enrollment", name: "aca_employee_monthly_enrollment" },
+  ]
+
+  // Check if we are viewing one of the report tables
+  const isViewingReportTable = reportTables.some(t => t.name === currentTable)
+
+  // Close accordion when navigating away or if not active
+  useEffect(() => {
+    if (!isActive && !isViewingReportTable) {
+      setIsOpen(false)
+    }
+  }, [pathname, isActive, isViewingReportTable])
+
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200",
+          (isActive || isViewingReportTable)
+            ? "bg-blue-600 text-white shadow-sm"
+            : "text-slate-300 hover:bg-slate-800 hover:text-white",
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <item.icon className={cn("h-5 w-5")} />
+          {item.name}
+        </div>
+        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+      </button>
+
+      {isOpen && (
+        <div className="pl-4 space-y-1 py-1">
+          <Link
+            href="/reports"
+            className={cn(
+              "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+              pathname === '/reports'
+                ? "bg-slate-800 text-blue-400 font-medium"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+            )}
+          >
+            <LayoutDashboard className="h-3 w-3" />
+            Generate New
+          </Link>
+
+          <div className="pt-2 pb-1 text-[10px] uppercase font-bold text-slate-500 px-2">View Reports</div>
+
+          {reportTables.map(table => (
+            <Link
+              key={table.name}
+              href={`/data-viewer?table=${table.name}`}
+              className={cn(
+                "block rounded-md px-2 py-1.5 text-xs transition-colors",
+                currentTable === table.name
+                  ? "bg-slate-800 text-blue-400 font-medium"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              )}
+            >
+              {table.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

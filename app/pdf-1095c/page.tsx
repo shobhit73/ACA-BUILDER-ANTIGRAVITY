@@ -41,7 +41,7 @@ interface Employee {
     ssn: string
 }
 
-const ITEMS_PER_PAGE = 10
+const ITEMS_PER_PAGE = 20
 
 export default function PDF1095CPage() {
     const [isLoading, setIsLoading] = useState(false)
@@ -219,37 +219,37 @@ export default function PDF1095CPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-3">
                 <Card className="bg-white border-slate-200 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Total Employees</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                        <CardTitle className="text-xs font-medium text-slate-600">Total Employees</CardTitle>
                         <Users className="h-4 w-4 text-blue-600" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">{employees.length}</div>
-                        <p className="text-xs text-slate-500">Ready for PDF generation</p>
+                    <CardContent className="p-4 pt-0">
+                        <div className="text-xl font-bold text-slate-900">{employees.length}</div>
+                        <p className="text-[10px] text-slate-500">Ready for PDF generation</p>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-white border-slate-200 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Status</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                        <CardTitle className="text-xs font-medium text-slate-600">Status</CardTitle>
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">Ready</div>
-                        <p className="text-xs text-slate-500">All systems operational</p>
+                    <CardContent className="p-4 pt-0">
+                        <div className="text-xl font-bold text-slate-900">Ready</div>
+                        <p className="text-[10px] text-slate-500">All systems operational</p>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-white border-slate-200 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Form</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                        <CardTitle className="text-xs font-medium text-slate-600">Form</CardTitle>
                         <FileText className="h-4 w-4 text-blue-600" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">1095-C</div>
-                        <p className="text-xs text-slate-500">IRS {taxYear}</p>
+                    <CardContent className="p-4 pt-0">
+                        <div className="text-xl font-bold text-slate-900">1095-C</div>
+                        <p className="text-[10px] text-slate-500">IRS {taxYear}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -272,25 +272,14 @@ export default function PDF1095CPage() {
                             List of employees from census. Dependents are included in the generated PDF.
                         </CardDescription>
                     </div>
-                    {user?.role === "System Admin" && (
-                        <div className="relative w-72">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search by Name, ID or SSN..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-8 bg-white border-slate-200 focus-visible:ring-blue-500"
-                            />
-                        </div>
-                    )}
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
+                    <div className="overflow-auto max-h-[calc(100vh-280px)] relative">
+                        <table className="w-full text-sm caption-bottom border-separate border-spacing-0">
+                            <TableHeader className="bg-slate-50 sticky top-0 z-20 shadow-sm">
                                 <TableRow>
-                                    <TableHead className="w-[100px]">Emp ID</TableHead>
-                                    <TableHead className="w-[200px]">Last Name</TableHead>
+                                    <TableHead className="w-[100px] sticky left-0 z-30 bg-slate-50 border-r border-slate-200">Emp ID</TableHead>
+                                    <TableHead className="w-[200px] sticky left-[100px] z-30 bg-slate-50 border-r border-slate-200">Last Name</TableHead>
                                     <TableHead className="w-[200px]">First Name</TableHead>
                                     <TableHead className="w-[150px]">SSN</TableHead>
                                     <TableHead className="text-center w-[150px]">Action</TableHead>
@@ -314,9 +303,9 @@ export default function PDF1095CPage() {
                                     </TableRow>
                                 ) : (
                                     paginatedEmployees.map((emp) => (
-                                        <TableRow key={emp.employee_id} className="hover:bg-slate-50/50 transition-colors">
-                                            <TableCell className="font-medium text-slate-700">{emp.employee_id}</TableCell>
-                                            <TableCell>{emp.last_name}</TableCell>
+                                        <TableRow key={emp.employee_id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <TableCell className="font-medium text-slate-700 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 border-r border-slate-100">{emp.employee_id}</TableCell>
+                                            <TableCell className="sticky left-[100px] z-10 bg-white group-hover:bg-slate-50/50 border-r border-slate-100">{emp.last_name}</TableCell>
                                             <TableCell>{emp.first_name}</TableCell>
                                             <TableCell className="font-mono text-sm">{maskSSN(emp.ssn)}</TableCell>
                                             <TableCell className="text-center">
@@ -339,7 +328,7 @@ export default function PDF1095CPage() {
                                     ))
                                 )}
                             </TableBody>
-                        </Table>
+                        </table>
                     </div>
 
                     {/* Pagination Controls */}

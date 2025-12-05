@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import useSWR from "swr"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -17,10 +18,9 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Loader2, Search, UserPlus, Mail, Send, MoreHorizontal } from "lucide-react"
+import { Loader2, Search, UserPlus, Mail, Send, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 
 interface User {
@@ -30,29 +30,43 @@ interface User {
     email: string | null
 }
 
+interface UserResponse {
+    data: User[]
+    pagination: {
+        page: number
+        pageSize: number
+        total: number
+        totalPages: number
+    }
+}
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
 export default function ManageUsersPage() {
-    const [users, setUsers] = useState<User[]>([])
-    const [isLoading, setIsLoading] = useState(true)
+    const [page, setPage] = useState(1)
     const [searchQuery, setSearchQuery] = useState("")
+    const [appliedSearch, setAppliedSearch] = useState("")
     const [invitingEmail, setInvitingEmail] = useState<string | null>(null)
 
+    // Debounce search
     useEffect(() => {
-        fetchUsers()
-    }, [])
+        const timer = setTimeout(() => {
+            setAppliedSearch(searchQuery)
+            setPage(1) // Reset to page 1 on search
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [searchQuery])
 
-    const fetchUsers = async () => {
-        try {
-            const response = await fetch("/api/settings/users")
-            if (!response.ok) throw new Error("Failed to fetch users")
-            const data = await response.json()
-            setUsers(data)
-        } catch (error) {
-            console.error("Error fetching users:", error)
-            toast.error("Failed to load users")
-        } finally {
-            setIsLoading(false)
+    const { data: response, isLoading } = useSWR<UserResponse>(
+        `/api/settings/users?page=${page}&pageSize=20&search=${appliedSearch}`,
+        fetcher,
+        {
+            keepPreviousData: true,
         }
-    }
+    )
+
+    const users = response?.data || []
+    const pagination = response?.pagination
 
     const handleInvite = async (email: string) => {
         if (!email) return
@@ -77,13 +91,6 @@ export default function ManageUsersPage() {
             setInvitingEmail(null)
         }
     }
-
-    const filteredUsers = users.filter(user =>
-        user.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.employee_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
 
     return (
         <div className="space-y-6">
@@ -114,11 +121,11 @@ export default function ManageUsersPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
+                    <div className="overflow-auto max-h-[calc(100vh-250px)] relative">
+                        <table className="w-full text-sm caption-bottom border-separate border-spacing-0">
+                            <TableHeader className="bg-slate-50 sticky top-0 z-20">
                                 <TableRow>
-                                    <TableHead className="w-[150px] font-semibold text-slate-700">Employee ID</TableHead>
+                                    <TableHead className="w-[150px] font-semibold text-slate-700 sticky left-0 z-30 bg-slate-50 border-r border-slate-200">Employee ID</TableHead>
                                     <TableHead className="font-semibold text-slate-700">First Name</TableHead>
                                     <TableHead className="font-semibold text-slate-700">Last Name</TableHead>
                                     <TableHead className="font-semibold text-slate-700">Email Address</TableHead>
@@ -135,16 +142,16 @@ export default function ManageUsersPage() {
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ) : filteredUsers.length === 0 ? (
+                                ) : users.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-24 text-center text-slate-500">
                                             No users found matching your search.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredUsers.map((user) => (
-                                        <TableRow key={user.employee_id} className="hover:bg-slate-50/50">
-                                            <TableCell className="font-medium text-slate-900">{user.employee_id}</TableCell>
+                                    users.map((user) => (
+                                        <TableRow key={user.employee_id} className="hover:bg-slate-50/50 group">
+                                            <TableCell className="font-medium text-slate-900 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 border-r border-slate-100">{user.employee_id}</TableCell>
                                             <TableCell className="text-slate-700">{user.first_name}</TableCell>
                                             <TableCell className="text-slate-700">{user.last_name}</TableCell>
                                             <TableCell className="text-slate-600">
@@ -185,8 +192,36 @@ export default function ManageUsersPage() {
                                     ))
                                 )}
                             </TableBody>
-                        </Table>
+                        </table>
                     </div>
+                    {/* Pagination */}
+                    {pagination && pagination.totalPages > 1 && (
+                        <div className="flex items-center justify-between px-4 py-4 border-t border-slate-100">
+                            <div className="text-sm text-slate-500">
+                                Showing {((page - 1) * pagination.pageSize) + 1} to {Math.min(page * pagination.pageSize, pagination.total)} of {pagination.total} entries
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                    disabled={page === pagination.totalPages}
+                                >
+                                    Next
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

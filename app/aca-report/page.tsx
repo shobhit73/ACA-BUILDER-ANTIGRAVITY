@@ -89,7 +89,7 @@ export default function ACAReportPage() {
         setIsLoading(true)
         try {
             const res = await fetch(
-                `/api/aca-report/list?companyCode=${companyCode}&taxYear=${taxYear}&page=${page}&limit=50&search=${searchQuery}`
+                `/api/aca-report/list?companyCode=${companyCode}&taxYear=${taxYear}&page=${page}&limit=20&search=${searchQuery}`
             )
             const data = await res.json()
             if (data.success) {
@@ -209,41 +209,7 @@ export default function ACAReportPage() {
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card className="bg-white border-slate-200 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Total Records</CardTitle>
-                        <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">{stats.totalEmployees.toLocaleString()}</div>
-                        <p className="text-xs text-slate-500">Monthly records generated</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-white border-slate-200 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Codes Calculated</CardTitle>
-                        <Calculator className="h-4 w-4 text-blue-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">{stats.codesGenerated.toLocaleString()}</div>
-                        <p className="text-xs text-slate-500">Line 14, 15, 16 values</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-white border-slate-200 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-600">Status</CardTitle>
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-slate-900">Ready</div>
-                        <p className="text-xs text-slate-500">System operational</p>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* <Stats Cards Removed> */}
 
             {/* Main Data Grid */}
             <Card className="border-slate-200 shadow-md overflow-hidden">
@@ -270,12 +236,12 @@ export default function ACAReportPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
+                    <div className="overflow-auto max-h-[calc(100vh-280px)] relative">
+                        <table className="w-full text-sm caption-bottom border-separate border-spacing-0">
+                            <TableHeader className="bg-slate-50 sticky top-0 z-20 shadow-sm">
                                 <TableRow>
-                                    <TableHead className="w-[100px]">Emp ID</TableHead>
-                                    <TableHead className="w-[200px]">Name</TableHead>
+                                    <TableHead className="w-[100px] sticky left-0 z-30 bg-slate-50 border-r border-slate-200">Emp ID</TableHead>
+                                    <TableHead className="w-[200px] sticky left-[100px] z-30 bg-slate-50 border-r border-slate-200">Name</TableHead>
                                     <TableHead className="w-[80px]">Month</TableHead>
                                     <TableHead className="text-center w-[100px]">Line 14 (Offer)</TableHead>
                                     <TableHead className="text-center w-[100px]">Line 15 (Cost)</TableHead>
@@ -303,9 +269,9 @@ export default function ACAReportPage() {
                                     </TableRow>
                                 ) : (
                                     records.map((record) => (
-                                        <TableRow key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <TableCell className="font-medium text-slate-700">{record.employee_id}</TableCell>
-                                            <TableCell>{record.employee_census.last_name}, {record.employee_census.first_name}</TableCell>
+                                        <TableRow key={record.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <TableCell className="font-medium text-slate-700 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 border-r border-slate-100">{record.employee_id}</TableCell>
+                                            <TableCell className="sticky left-[100px] z-10 bg-white group-hover:bg-slate-50/50 border-r border-slate-100">{record.employee_census.last_name}, {record.employee_census.first_name}</TableCell>
                                             <TableCell>
                                                 <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-xs font-medium text-slate-600">
                                                     {record.month}
@@ -331,7 +297,7 @@ export default function ACAReportPage() {
                                     ))
                                 )}
                             </TableBody>
-                        </Table>
+                        </table>
                     </div>
 
                     {/* Pagination */}

@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Download, Loader2, CheckCircle, AlertCircle, FileOutput, Calendar, Building2 } from "lucide-react"
+import { Download, Loader2, CheckCircle, AlertCircle, FileOutput, Calendar, Building2, Table as TableIcon, Eye } from "lucide-react"
 
 export default function ReportsPage() {
   const [companyCode, setCompanyCode] = useState("")
@@ -76,179 +77,117 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full bg-slate-50/30 -m-6 min-h-[calc(100vh-2rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Generate Reports</h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Create and download ACA interim tables for IRS Form 1095-C preparation
-          </p>
+      <div className="h-16 border-b px-8 flex items-center justify-between shrink-0 bg-white shadow-sm z-20">
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-10 bg-blue-50 rounded-lg flex items-center justify-center border border-blue-100 text-blue-600">
+            <FileOutput className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Generate Reports</h1>
+            <p className="text-sm text-slate-500">Create ACA interim tables for IRS Form 1095-C</p>
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <div className="text-right px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
-            <div className="text-sm font-medium text-blue-900">Interim Tables</div>
-            <div className="text-xs text-blue-600">Monthly Tracking</div>
+          <div className="text-right">
+            <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Status</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-sm font-semibold text-slate-900">System Ready</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Generate Section */}
-      <Card className="border-slate-200 bg-white">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <FileOutput className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <CardTitle className="text-lg text-slate-900">Generate Tables</CardTitle>
-              <CardDescription>Process imported data to create monthly tracking tables</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="companyCode" className="flex items-center gap-2 text-slate-700">
-                <Building2 className="h-4 w-4 text-blue-500" />
-                Company Code
-              </Label>
-              <Input
-                id="companyCode"
-                type="text"
-                value={companyCode}
-                onChange={(e) => setCompanyCode(e.target.value)}
-                placeholder="e.g., COMP001"
-                disabled={isGenerating}
-                className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="taxYear" className="flex items-center gap-2 text-slate-700">
-                <Calendar className="h-4 w-4 text-blue-500" />
-                Tax Year
-              </Label>
-              <Input
-                id="taxYear"
-                type="number"
-                value={taxYear}
-                onChange={(e) => setTaxYear(e.target.value)}
-                placeholder="2024"
-                min="2000"
-                max="2100"
-                disabled={isGenerating}
-                className="border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end">
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating || !taxYear || !companyCode}
-              className="bg-blue-600 hover:bg-blue-700 min-w-[150px] text-white"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Tables"
-              )}
-            </Button>
-          </div>
-
-          {error && (
-            <Alert variant="destructive" className="animate-slide-in-up">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {isGenerated && (
-            <Alert className="border-green-200 bg-green-50 animate-slide-in-up">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800 font-medium">
-                Interim tables generated successfully! You can now download the files below.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Download Section */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          {
-            name: "aca_employee_monthly_status",
-            title: "Monthly Status",
-            description: "Employment status & hours",
-            color: "blue",
-          },
-          {
-            name: "aca_employee_monthly_offer",
-            title: "Monthly Offer",
-            description: "Coverage eligibility & offers",
-            color: "cyan",
-          },
-          {
-            name: "aca_employee_monthly_enrollment",
-            title: "Monthly Enrollment",
-            description: "Enrollment & cost details",
-            color: "teal",
-          },
-        ].map((file) => (
-          <Card key={file.name} className="hover:shadow-md transition-shadow border-slate-200 hover:border-blue-300">
-            <CardContent className="p-6">
-              <div className="flex flex-col h-full justify-between gap-4">
-                <div>
-                  <h3 className="font-semibold text-slate-900">{file.title}</h3>
-                  <p className="text-sm text-slate-600 mt-1">{file.description}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownload(file.name)}
-                  disabled={downloadingFile === file.name || !companyCode}
-                  className="w-full border-slate-300 hover:bg-slate-50 text-slate-700"
-                >
-                  {downloadingFile === file.name ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="mr-2 h-4 w-4" />
-                      Download CSV
-                    </>
-                  )}
-                </Button>
+      <div className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full space-y-8">
+        {/* Generate Section */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-100 rounded-lg text-blue-600">
+                <TableIcon className="h-6 w-6" />
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Info Section */}
-      <Card className="bg-slate-50 border-slate-200">
-        <CardContent className="p-4">
-          <div className="flex gap-3">
-            <div className="p-2 bg-white rounded-full border border-slate-200 h-fit">
-              <AlertCircle className="h-4 w-4 text-slate-500" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-sm text-slate-900">About Interim Tables</h4>
-              <p className="text-sm text-slate-600 mt-1 leading-relaxed">
-                The interim tables consolidate your base data into three monthly tracking files that serve as the
-                foundation for IRS Form 1095-C preparation. These tables track employee status, coverage offers, and
-                enrollment details for each month of the tax year.
-              </p>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Generate Tables</h2>
+                <p className="text-slate-500 mt-1">Process your imported census and payroll data to generate the monthly tracking tables required for ACA reporting.</p>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="p-8">
+            <div className="grid gap-8 md:grid-cols-2 max-w-4xl">
+              <div className="space-y-3">
+                <Label htmlFor="companyCode" className="flex items-center gap-2 text-slate-700 font-medium">
+                  <Building2 className="h-4 w-4 text-blue-500" />
+                  Company Code
+                </Label>
+                <Input
+                  id="companyCode"
+                  type="text"
+                  value={companyCode}
+                  onChange={(e) => setCompanyCode(e.target.value)}
+                  placeholder="e.g., COMP001"
+                  disabled={isGenerating}
+                  className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="taxYear" className="flex items-center gap-2 text-slate-700 font-medium">
+                  <Calendar className="h-4 w-4 text-blue-500" />
+                  Tax Year
+                </Label>
+                <Input
+                  id="taxYear"
+                  type="number"
+                  value={taxYear}
+                  onChange={(e) => setTaxYear(e.target.value)}
+                  placeholder="2024"
+                  min="2000"
+                  max="2100"
+                  disabled={isGenerating}
+                  className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex items-center gap-4">
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || !taxYear || !companyCode}
+                className="h-11 px-8 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 transition-all font-medium"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing Data...
+                  </>
+                ) : (
+                  "Generate Tables"
+                )}
+              </Button>
+
+              {isGenerated && (
+                <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium animate-in fade-in slide-in-from-left-4 duration-500">
+                  <CheckCircle className="h-5 w-5" />
+                  Tables generated successfully
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <Alert variant="destructive" className="mt-6 animate-in slide-in-from-top-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+
+
+      </div>
     </div>
   )
 }
