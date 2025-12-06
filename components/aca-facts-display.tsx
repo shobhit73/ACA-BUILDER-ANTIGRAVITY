@@ -1,59 +1,45 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Lightbulb, TrendingUp, Shield, Users } from "lucide-react"
+import { Lightbulb, TrendingUp, Shield, Users, Info } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 
 const acaFacts = [
     {
         icon: Shield,
         title: "ACA Compliance",
-        fact: "The Affordable Care Act requires applicable large employers (ALEs) to offer health coverage to at least 95% of their full-time employees.",
+        fact: "Applicable Large Employers (ALEs) must offer health coverage to at least 95% of full-time employees to maintain compliance.",
     },
     {
         icon: Users,
-        title: "Full-Time Employee Definition",
-        fact: "Under the ACA, a full-time employee is defined as someone who works an average of 30 hours per week or 130 hours per month.",
+        title: "Full-Time Definition",
+        fact: "A full-time employee is defined as one working 30+ hours/week or 130+ hours/month using the monthly measurement method.",
     },
     {
         icon: TrendingUp,
-        title: "Measurement Period",
-        fact: "Employers can use a look-back measurement period (typically 3-12 months) to determine employee eligibility for health coverage.",
+        title: "Measurement Periods",
+        fact: "Look-back measurement periods (3-12 months) allow you to stabilize coverage eligibility for variable hour employees.",
     },
     {
         icon: Lightbulb,
         title: "Form 1095-C Purpose",
-        fact: "Form 1095-C provides proof of health insurance coverage offered to employees, helping them complete their tax returns accurately.",
+        fact: "Form 1095-C serves as proof of insurance offers, helping employees claim premium tax credits or verify coverage.",
     },
     {
         icon: Shield,
         title: "Penalty Protection",
-        fact: "Offering affordable, minimum value coverage to 95% of full-time employees helps employers avoid ACA penalties.",
+        fact: "Providing Minimum Value and Affordable coverage protects your organization from IRS 4980H(b) penalties.",
     },
     {
         icon: Users,
-        title: "Coverage Affordability",
-        fact: "Coverage is considered affordable if the employee's cost for self-only coverage doesn't exceed 9.12% of household income (2023 rate).",
+        title: "Affordability Threshold",
+        fact: "For 2024, coverage is affordable if the employee's contribution does not exceed 8.39% of their household income (approx).",
     },
     {
-        icon: TrendingUp,
-        title: "Minimum Value Standard",
-        fact: "A health plan provides minimum value if it covers at least 60% of the total allowed cost of benefits.",
-    },
-    {
-        icon: Lightbulb,
-        title: "Reporting Deadline",
-        fact: "Employers must file Form 1095-C with the IRS by February 28 (paper) or March 31 (electronic) each year.",
-    },
-    {
-        icon: Shield,
-        title: "Safe Harbor Methods",
-        fact: "Employers can use safe harbor methods like W-2 wages, rate of pay, or federal poverty line to determine coverage affordability.",
-    },
-    {
-        icon: Users,
-        title: "Variable Hour Employees",
-        fact: "For variable hour employees, employers can use a measurement period to track hours and determine eligibility prospectively.",
-    },
+        icon: Info,
+        title: "Minimum Value",
+        fact: "A plan provides Minimum Value if it covers at least 60% of the total allowed cost of benefits expected to be incurred.",
+    }
 ]
 
 interface ACAFactsDisplayProps {
@@ -71,7 +57,7 @@ export function ACAFactsDisplay({ isUploading = false, className = "" }: ACAFact
         setIsVisible(true)
         const interval = setInterval(() => {
             setCurrentFactIndex((prev) => (prev + 1) % acaFacts.length)
-        }, 5000) // Change fact every 5 seconds
+        }, 6000) // Slower rotation for better readability
 
         return () => clearInterval(interval)
     }, [isUploading])
@@ -82,39 +68,46 @@ export function ACAFactsDisplay({ isUploading = false, className = "" }: ACAFact
     const Icon = currentFact.icon
 
     return (
-        <div className={`animate-slide-in-up ${className}`}>
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-cyan-50 to-teal-50 border-2 border-cyan-200 p-6 shadow-lg">
-                {/* Animated background */}
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-100/50 via-teal-100/50 to-blue-100/50 animate-shimmer" />
-
-                {/* Content */}
-                <div className="relative z-10">
-                    <div className="flex items-start gap-4">
+        <div className={`animate-in fade-in slide-in-from-bottom-4 duration-700 ${className}`}>
+            <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
+                <CardContent className="p-5">
+                    <div className="flex gap-5">
+                        {/* Icon Side */}
                         <div className="flex-shrink-0">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-teal-400 shadow-lg animate-pulse-glow">
-                                <Icon className="h-6 w-6 text-white" />
+                            <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center border border-indigo-100">
+                                <Icon className="h-5 w-5 text-indigo-600" />
                             </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-cyan-900 mb-2">{currentFact.title}</h3>
-                            <p className="text-sm text-cyan-800 leading-relaxed">{currentFact.fact}</p>
+
+                        {/* Text Content */}
+                        <div className="flex-1 min-w-0 pt-0.5">
+                            <div className="flex items-center justify-between mb-1">
+                                <h4 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
+                                    Did you know?
+                                </h4>
+                                <span className="text-xs text-slate-400 font-medium">
+                                    Fact {currentFactIndex + 1} of {acaFacts.length}
+                                </span>
+                            </div>
+
+                            <h3 className="text-base font-medium text-slate-800 mb-1">
+                                {currentFact.title}
+                            </h3>
+                            <p className="text-sm text-slate-600 leading-relaxed">
+                                {currentFact.fact}
+                            </p>
                         </div>
                     </div>
 
-                    {/* Progress indicator */}
-                    <div className="mt-4 flex gap-1">
-                        {acaFacts.map((_, index) => (
-                            <div
-                                key={index}
-                                className={`h-1 flex-1 rounded-full transition-all duration-300 ${index === currentFactIndex
-                                        ? "bg-gradient-to-r from-cyan-500 to-teal-500"
-                                        : "bg-cyan-200"
-                                    }`}
-                            />
-                        ))}
+                    {/* Subtle Progress Bar */}
+                    <div className="mt-4 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-indigo-500 transition-all duration-300 ease-out"
+                            style={{ width: `${((currentFactIndex + 1) / acaFacts.length) * 100}%` }}
+                        />
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </div>
     )
 }

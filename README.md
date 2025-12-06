@@ -25,8 +25,9 @@ A comprehensive Next.js application for managing IRS Form 1095-C compliance. Thi
 - **Detailed Reports**: Drill down into specific penalty reasons per month
 
 ### 5. User Management & Security
-- **Role-Based Access Control (RBAC)**: Distinct views for "System Admin" and "User" (Employee)
-- **User Management**: Invite users via email, manage access
+- **Role-Based Access Control (RBAC)**: Distinct views for "System Admin", "Employer Admin", and "User"
+- **Multi-Employer Support**: Full isolation of data between different companies
+- **Dynamic Modules**: Configurable feature sets per company (e.g., toggle "ACA Penalties" or "Reports")
 - **Secure Auth**: Supabase Authentication with secure password updates
 
 ---

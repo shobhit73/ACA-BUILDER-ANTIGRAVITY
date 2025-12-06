@@ -1,0 +1,4 @@
+{
+  "success": false,
+  "error": "null value in column \"terminated_during_month\" of relation \"aca_employee_monthly_status\" violates not-null constraint"
+}

@@ -108,6 +108,10 @@ export default function AddCompanyPage() {
                                     <Switch id="pdf1095c" name="pdf1095c" />
                                 </div>
                                 <div className="flex items-center justify-between">
+                                    <Label htmlFor="pdf1094c">1094-C Form Generation</Label>
+                                    <Switch id="pdf1094c" name="pdf1094c" />
+                                </div>
+                                <div className="flex items-center justify-between">
                                     <Label htmlFor="acaPenalties">Penalty Dashboard</Label>
                                     <Switch id="acaPenalties" name="acaPenalties" />
                                 </div>

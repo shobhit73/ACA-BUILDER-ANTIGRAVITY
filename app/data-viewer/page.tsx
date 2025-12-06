@@ -17,6 +17,13 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { TABLES, TableInfo } from "@/lib/constants/tables"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface TableData {
   success: boolean
@@ -40,7 +47,33 @@ export default function DataViewerPage() {
   const [filters, setFilters] = useState({ companyCode: "", year: "", search: "" })
   // Applied filters (used in SWR key for fetching)
   const [appliedFilters, setAppliedFilters] = useState({ companyCode: "", year: "", search: "" })
+
   const [downloading, setDownloading] = useState(false)
+  const [companies, setCompanies] = useState<{ company_code: string; company_name: string }[]>([])
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+
+        // RLS will automatically filter this for Employer Admins
+        const { data } = await supabase.from("company_details").select("company_code, company_name").order("company_name")
+
+        if (data) {
+          setCompanies(data)
+          // Auto-select if only one company (Employer Admin case)
+          if (data.length === 1 && !filters.companyCode) {
+            setFilters(prev => ({ ...prev, companyCode: data[0].company_code }))
+            setAppliedFilters(prev => ({ ...prev, companyCode: data[0].company_code }))
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch companies", e)
+      }
+    }
+    fetchCompanies()
+  }, [])
 
   // Get selected table info from constants based on URL param
   const selectedTableInfo = TABLES.find((t) => t.name === tableNameParam)
@@ -76,7 +109,7 @@ export default function DataViewerPage() {
   const loading = isLoading // Backward compatibility alias
 
   // Helper to sort columns: ID and Name first
-  const priorityCols = ["employee_id", "first_name", "last_name", "company_code", "tax_year", "year"]
+  const priorityCols = ["company_code", "employee_id", "dependent_id", "first_name", "last_name", "tax_year", "year"]
   const sortedKeys = tableData && tableData.data && tableData.data.length > 0
     ? Object.keys(tableData.data[0]).sort((a, b) => {
       const idxA = priorityCols.indexOf(a); const idxB = priorityCols.indexOf(b);
@@ -104,7 +137,11 @@ export default function DataViewerPage() {
     router.push(`/data-viewer?${params.toString()}`)
 
     // Apply filters
-    setAppliedFilters(filters)
+    // Apply filters
+    // If "ALL" is selected, clear the filter
+    const applied = { ...filters }
+    if (applied.companyCode === "ALL") applied.companyCode = ""
+    setAppliedFilters(applied)
   }
 
   const handleDownload = async () => {
@@ -200,12 +237,23 @@ export default function DataViewerPage() {
         <div className="flex items-center gap-3 bg-slate-50/50 p-2 rounded-lg border border-slate-100">
           <div className="flex-1 grid grid-cols-12 gap-3">
             <div className="col-span-3">
-              <Input
-                placeholder="Company Code"
-                className="h-9 bg-white text-sm"
+              <Select
                 value={filters.companyCode}
-                onChange={(e) => setFilters(prev => ({ ...prev, companyCode: e.target.value }))}
-              />
+                onValueChange={(val) => setFilters(prev => ({ ...prev, companyCode: val }))}
+                disabled={companies.length === 1}
+              >
+                <SelectTrigger className="h-9 bg-white text-sm">
+                  <SelectValue placeholder="Select Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.length > 1 && <SelectItem value="ALL">All Companies</SelectItem>}
+                  {companies.map((c) => (
+                    <SelectItem key={c.company_code} value={c.company_code}>
+                      {c.company_name} ({c.company_code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="col-span-2">
               <Input

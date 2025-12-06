@@ -8,14 +8,36 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, Loader2, CheckCircle, AlertCircle, FileOutput, Calendar, Building2, Table as TableIcon, Eye } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function ReportsPage() {
   const [companyCode, setCompanyCode] = useState("")
+  const [companies, setCompanies] = useState<{ company_code: string; company_name: string }[]>([])
   const [taxYear, setTaxYear] = useState(new Date().getFullYear().toString())
   const [isGenerating, setIsGenerating] = useState(false)
   const [isGenerated, setIsGenerated] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null)
+
+  useState(() => {
+    const fetchCompanies = async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+        const { data } = await supabase.from("company_details").select("company_code, company_name")
+        if (data) setCompanies(data)
+      } catch (e) {
+        console.error("Failed to fetch companies", e)
+      }
+    }
+    fetchCompanies()
+  })
 
   const handleGenerate = async () => {
     setIsGenerating(true)
@@ -117,72 +139,102 @@ export default function ReportsPage() {
           </div>
 
           <div className="p-8">
-            <div className="grid gap-8 md:grid-cols-2 max-w-4xl">
-              <div className="space-y-3">
-                <Label htmlFor="companyCode" className="flex items-center gap-2 text-slate-700 font-medium">
-                  <Building2 className="h-4 w-4 text-blue-500" />
-                  Company Code
-                </Label>
-                <Input
-                  id="companyCode"
-                  type="text"
-                  value={companyCode}
-                  onChange={(e) => setCompanyCode(e.target.value)}
-                  placeholder="e.g., COMP001"
-                  disabled={isGenerating}
-                  className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
+            <div className="max-w-4xl">
+              <div className="grid gap-8 md:grid-cols-2 items-start">
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="companyCode" className="flex items-center gap-2 text-slate-700 font-medium">
+                      <Building2 className="h-4 w-4 text-blue-500" />
+                      Company Code
+                    </Label>
+                    <Select value={companyCode} onValueChange={setCompanyCode} disabled={isGenerating}>
+                      <SelectTrigger className="h-11 border-slate-200 focus:ring-blue-500 bg-slate-50/50">
+                        <SelectValue placeholder="Select Company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((c) => (
+                          <SelectItem key={c.company_code} value={c.company_code}>
+                            {c.company_name} ({c.company_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-3">
-                <Label htmlFor="taxYear" className="flex items-center gap-2 text-slate-700 font-medium">
-                  <Calendar className="h-4 w-4 text-blue-500" />
-                  Tax Year
-                </Label>
-                <Input
-                  id="taxYear"
-                  type="number"
-                  value={taxYear}
-                  onChange={(e) => setTaxYear(e.target.value)}
-                  placeholder="2024"
-                  min="2000"
-                  max="2100"
-                  disabled={isGenerating}
-                  className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-            </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="taxYear" className="flex items-center gap-2 text-slate-700 font-medium">
+                      <Calendar className="h-4 w-4 text-blue-500" />
+                      Tax Year
+                    </Label>
+                    <Input
+                      id="taxYear"
+                      type="number"
+                      value={taxYear}
+                      onChange={(e) => setTaxYear(e.target.value)}
+                      placeholder="2024"
+                      min="2000"
+                      max="2100"
+                      disabled={isGenerating}
+                      className="h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500 bg-slate-50/50"
+                    />
+                  </div>
 
-            <div className="mt-8 flex items-center gap-4">
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || !taxYear || !companyCode}
-                className="h-11 px-8 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 transition-all font-medium"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing Data...
-                  </>
-                ) : (
-                  "Generate Tables"
-                )}
-              </Button>
+                  <div className="pt-4 border-t border-slate-100 mt-6">
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={isGenerating || !taxYear || !companyCode}
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100 transition-all font-medium text-base"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Processing Data...
+                        </>
+                      ) : (
+                        "Generate Tables"
+                      )}
+                    </Button>
+                  </div>
 
-              {isGenerated && (
-                <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium animate-in fade-in slide-in-from-left-4 duration-500">
-                  <CheckCircle className="h-5 w-5" />
-                  Tables generated successfully
+                  {isGenerated && (
+                    <div className="flex items-center justify-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                      <CheckCircle className="h-5 w-5" />
+                      Interim tables generated successfully!
+                    </div>
+                  )}
+
+                  {error && (
+                    <Alert variant="destructive" className="animate-in slide-in-from-top-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {error && (
-              <Alert variant="destructive" className="mt-6 animate-in slide-in-from-top-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+                {/* Info Sidebar */}
+                <div className="bg-slate-50 rounded-xl p-6 border border-slate-100 space-y-4">
+                  <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-blue-500" />
+                    Preview
+                  </h3>
+                  <div className="text-sm text-slate-600 leading-relaxed space-y-3">
+                    <p>
+                      This process will generate the following monthly tracking data for each employee:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-1 text-slate-500">
+                      <li>Eligibility Status</li>
+                      <li>Offer of Coverage</li>
+                      <li>Enrollment Status</li>
+                    </ul>
+                    <div className="pt-4 mt-2 border-t border-slate-200/60">
+                      <p className="text-xs text-slate-400">
+                        Note: Existing data for this company and year will be recalculated.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

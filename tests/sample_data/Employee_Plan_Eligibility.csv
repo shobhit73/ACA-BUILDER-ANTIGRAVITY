@@ -1,0 +1,2 @@
+company_code,employee_id,plan_code,eligibility_start_date,eligibility_end_date,eligibility_status,benefit_class,measurement_type,option_code,plan_cost,category_code,add_name,add_date,modified_by,modified_on
+CMP001,EMP001,PLAN001,2020-04-01,,Y,ClassA,Monthly,OPT1,100.00,CAT1,TestImport,2023-10-27,,

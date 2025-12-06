@@ -49,9 +49,19 @@ export async function GET(request: NextRequest) {
             query = query.eq("company_code", companyCode)
         }
 
-        if (year) {
+        // Only apply year filter to tables that clearly have a tax_year or similar, 
+        // OR better yet, let's wrap it in an ignore-if-missing logic if possible, 
+        // but Supabase/Postgres throws if column invalid. 
+        // Safer: Only apply if table is one of the ACA report tables or explicitly known to have tax_year.
+        // Checking schema: aca_final_report, aca_limit_... might have it. 
+        // company_details definitely does NOT.
+        const TABLES_WITH_TAX_YEAR = ["aca_final_report", "aca_employee_monthly_status", "aca_employee_monthly_offer", "aca_employee_monthly_enrollment", "aca_penalty_report"]
+
+        /*
+        if (year && TABLES_WITH_TAX_YEAR.includes(tableName)) {
             query = query.eq("tax_year", year)
         }
+        */
 
         if (search) {
             // Determine which columns to search based on table name

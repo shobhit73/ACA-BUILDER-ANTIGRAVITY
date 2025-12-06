@@ -1,0 +1,2 @@
+company_code,employee_id,first_name,middle_name,last_name,ssn,date_of_birth,gender,hire_date,termination_date,employment_status,job_title,department,full_time_equivalent,pay_frequency,employment_type_code,email,employee_category,notes,add_name,add_date,modified_by,modified_on
+CMP001,EMP001,John,,Doe,000-00-0001,1980-01-01,M,2020-01-01,,Active,Manager,Engineering,1.0,Bi-Weekly,FT,john.doe@test.com,Salaried,Test Note,TestImport,2023-10-27,,

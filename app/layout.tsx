@@ -2,8 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { Sidebar } from "@/components/layout/sidebar"
-import { SidebarWrapper } from "@/components/layout/sidebar-wrapper"
+import { AppShell } from "@/components/layout/app-shell"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
@@ -40,16 +39,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased`}>
-        {/* <CHANGE> Added sidebar navigation layout */}
-        <div className="flex h-screen overflow-hidden">
-          <SidebarWrapper>
-            <Sidebar />
-          </SidebarWrapper>
-          <main className="flex-1 overflow-y-auto bg-slate-50">
-            <div className="container mx-auto p-8">{children}</div>
-          </main>
-        </div>
+      <body className={`font-sans antialiased h-screen w-screen overflow-hidden`}>
+        <AppShell>
+          {children}
+        </AppShell>
         <Analytics />
         <Toaster />
       </body>

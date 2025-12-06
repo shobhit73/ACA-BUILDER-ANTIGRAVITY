@@ -1,0 +1,6 @@
+2025-12-06T12:09:46.893Z: infinite recursion detected in policy for relation "profiles"
+
+---
+2025-12-06T12:09:57.871Z: infinite recursion detected in policy for relation "profiles"
+
+---

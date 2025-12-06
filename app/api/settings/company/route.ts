@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
         .from("company_details")
-        .select("company_code, company_name", { count: "exact" })
+        .select("company_code, company_name, is_active", { count: "exact" })
         .order("company_code", { ascending: true })
 
     if (search) {

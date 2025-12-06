@@ -17,7 +17,7 @@ import logo from "@/app/assets/logo.png"
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Upload, FileOutput, Settings, Database, Calculator, FileText, Sliders, AlertTriangle, LogOut } from "lucide-react"
+import { Upload, FileOutput, Settings, Database, Calculator, FileText, Sliders, AlertTriangle, LogOut, Building, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -29,7 +29,11 @@ type ModuleCode =
   | "generate_reports"
   | "aca_report"
   | "pdf_1095c"
+  | "pdf_1094c"
   | "aca_penalties"
+  | "aca_penalties"
+  | "sys_admin_only"
+  | "manage_users"
 
 const navigation = [
   {
@@ -63,6 +67,12 @@ const navigation = [
     moduleCode: "pdf_1095c" as ModuleCode,
   },
   {
+    name: "1094-C Form",
+    href: "/pdf-1094c",
+    icon: FileText,
+    moduleCode: "pdf_1094c" as ModuleCode,
+  },
+  {
     name: "Plan Configuration",
     href: "/plan-configuration",
     icon: Sliders,
@@ -80,6 +90,19 @@ const navigation = [
     icon: Settings,
     moduleCode: null, // Always visible
   },
+  // SYSTEM ADMIN ONLY ROUTES
+  {
+    name: "Companies",
+    href: "/admin/companies",
+    icon: Building,
+    moduleCode: "sys_admin_only",
+  },
+  {
+    name: "Manage Users",
+    href: "/settings/users",
+    icon: Users,
+    moduleCode: "manage_users",
+  }
 ]
 
 export function Sidebar() {
@@ -96,7 +119,15 @@ export function Sidebar() {
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
           const name = user.user_metadata.first_name || user.email?.split("@")[0] || "User"
-          const role = user.user_metadata.role === "super_admin" ? "System Admin" : "User"
+          // MAPPING: Map DB role to UI role
+          let role = "User"
+          const metaRole = user.user_metadata.role
+
+          if (metaRole === "super_admin" || metaRole === "system_admin") {
+            role = "System Admin"
+          } else if (metaRole === "employer_admin" || metaRole === "company_admin") {
+            role = "Employer Admin"
+          }
 
           let companyCode = null
           let modules: ModuleCode[] = []
@@ -104,26 +135,32 @@ export function Sidebar() {
           if (role === "System Admin") {
             // Super Admin has access to everything
             modules = navigation.map(n => n.moduleCode).filter((c): c is ModuleCode => c !== null)
+            // Allow sys admin routes
+            modules.push("sys_admin_only" as any)
           } else {
-            // Fetch user's company
-            const { data: mapping } = await supabase
-              .from("user_company_mapping")
+            // Fetch user's company and modules
+            const { data: profile } = await supabase
+              .from("profiles")
               .select("company_code")
-              .eq("user_id", user.id)
+              .eq("id", user.id)
               .single()
 
-            if (mapping) {
-              companyCode = mapping.company_code
+            if (profile && profile.company_code) {
+              companyCode = profile.company_code
 
-              // Fetch allowed modules
-              const { data: companyModules } = await supabase
-                .from("company_modules")
-                .select("module_code")
+              // Fetch allowed modules from company_details
+              // Core modules are always active: import_data, view_data, plan_configuration
+              modules = ["import_data", "view_data", "plan_configuration"]
+
+              const { data: companyDetails } = await supabase
+                .from("company_details")
+                .select("modules")
                 .eq("company_code", companyCode)
-                .eq("is_enabled", true)
+                .single()
 
-              if (companyModules) {
-                modules = companyModules.map((m: any) => m.module_code)
+              if (companyDetails && companyDetails.modules && Array.isArray(companyDetails.modules)) {
+                // Append add-on modules
+                modules = [...modules, ...companyDetails.modules] as ModuleCode[]
               }
             }
           }
@@ -170,7 +207,21 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         {user && navigation
           .filter(item => {
-            if (!item.moduleCode) return true // Always show items without module code (e.g. Settings)
+            // Strict check for Settings: Only System Admin can see it (or Employer Admin? Keeping mostly sys admin for now)
+            if (item.name === "Settings") {
+              // return user.role === "System Admin" // Old logic
+              return true // Let everyone see settings, page handles access
+            }
+
+            if (item.moduleCode === "sys_admin_only") {
+              return user.role === "System Admin"
+            }
+
+            if (item.moduleCode === "manage_users") {
+              return user.role === "System Admin" || user.role === "Employer Admin"
+            }
+
+            if (!item.moduleCode) return true // Always show other items without module code
             return allowedModules.includes(item.moduleCode)
           })
           .map((item) => {

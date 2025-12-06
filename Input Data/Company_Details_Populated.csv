@@ -1,0 +1,4 @@
+company_code,company_name,dba_name,ein,address_line_1,address_line_2,city,state,zip_code,country,contact_name,contact_phone,contact_email,is_authoritative_transmittal,is_agg_ale_group,cert_qualifying_offer,cert_98_percent_offer,add_name,add_date,modified_by,modified_on
+202,Acme Global Services Inc.,Acme Global,12-3456789,100 Enterprise Blvd,Suite 500,Austin,TX,73301,USA,John Doe,555-010-1010,jdoe@acme.com,TRUE,FALSE,FALSE,TRUE,System_Admin,1/1/2025,,
+303,Beta Tech Solutions,Beta Tech,98-7654321,456 Innovation Dr,,San Francisco,CA,94105,USA,Jane Smith,415-555-2020,jsmith@betatech.com,TRUE,FALSE,FALSE,TRUE,System_Admin,1/1/2025,,
+404,Gamma Logistics LLC,Gamma Ship,45-6789123,789 Warehouse Rd,Dock 4,Chicago,IL,60601,USA,Robert Brown,312-555-3030,rbrown@gammalog.com,TRUE,FALSE,FALSE,TRUE,System_Admin,1/1/2025,,

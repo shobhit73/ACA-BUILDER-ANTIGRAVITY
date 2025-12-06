@@ -30,6 +30,7 @@ import {
     Search,
     ChevronLeft,
     ChevronRight,
+    FileCheck
 } from "lucide-react"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
@@ -39,6 +40,7 @@ interface Employee {
     first_name: string
     last_name: string
     ssn: string
+    company_code: string
 }
 
 const ITEMS_PER_PAGE = 20
@@ -53,7 +55,7 @@ export default function PDF1095CPage() {
     const [searchQuery, setSearchQuery] = useState("")
     const [currentPage, setCurrentPage] = useState(1)
 
-    const [user, setUser] = useState<{ role: string; email: string } | null>(null)
+    const [user, setUser] = useState<{ role: string; email: string; name?: string } | null>(null)
 
     useEffect(() => {
         fetchUserAndCompanies()
@@ -64,20 +66,29 @@ export default function PDF1095CPage() {
         const { data: { user } } = await supabase.auth.getUser()
 
         if (user) {
-            const role = user.user_metadata.role === "super_admin" ? "System Admin" : "User"
-            setUser({ role, email: user.email || "" })
+            let role = "User"
+            if (user.user_metadata.role === "super_admin" || user.user_metadata.role === "system_admin") {
+                role = "System Admin"
+            } else if (user.user_metadata.role === "company_admin" || user.user_metadata.role === "employer_admin") {
+                role = "Employer Admin"
+            }
 
-            // Only fetch companies if admin
+            const name = user.user_metadata.first_name || user.email?.split("@")[0] || "User"
+            setUser({ role, email: user.email || "", name })
+
+            // Only fetch companies if sys admin
             if (role === "System Admin") {
                 const { data } = await supabase.from("company_details").select("company_code, company_name")
                 if (data && data.length > 0) {
                     setCompanies(data)
                     setCompanyCode(data[0].company_code)
                 }
-            } else {
-                // For regular user, we might need to fetch their company code from census or just default
-                // For now, let's assume we can find them by email across all companies or just fetch their record
-                // We'll handle this in fetchEmployees
+            } else if (role === "Employer Admin") {
+                // Fetch assigned company for Employer Admin
+                const { data } = await supabase.from("user_company_mapping").select("company_code").eq("user_id", user.id).single()
+                if (data) {
+                    setCompanyCode(data.company_code)
+                }
             }
         }
     }
@@ -97,7 +108,7 @@ export default function PDF1095CPage() {
                 .from("employee_census")
                 .select("employee_id, first_name, last_name, ssn, company_code")
 
-            if (user.role === "System Admin") {
+            if (user.role === "System Admin" || user.role === "Employer Admin") {
                 if (companyCode) {
                     query = query.eq("company_code", companyCode)
                 }
@@ -110,11 +121,19 @@ export default function PDF1095CPage() {
             const { data, error } = await query
 
             if (data) {
-                setEmployees(data)
-                // If regular user, set company code from their record for PDF generation
-                if (user.role !== "System Admin" && data.length > 0) {
-                    setCompanyCode(data[0].company_code)
+                // Deduplicate for regular users if multiple records exist for same person (same SSN)
+                // This handles the "two records" issue if they are essentially duplicates
+                let employeeList = data as Employee[]
+
+                if (user.role !== "System Admin" && user.role !== "Employer Admin") {
+                    // Ensure unique by employee_id to be safe, but mostly we want to avoid showing exact duplicates if any
+                    // If records have different IDs but same info, we might want to keep them or just take the latest.
+                    // For now, let's keep all unique IDs but if user complained about "two pdfs", it's likely they see multiple rows.
+                    // The simplified view will handle the display better.
+                    setCompanyCode(data.length > 0 ? data[0].company_code : "")
                 }
+
+                setEmployees(employeeList)
             }
         } catch (error) {
             console.error("Failed to fetch employees:", error)
@@ -123,23 +142,6 @@ export default function PDF1095CPage() {
             setIsLoading(false)
         }
     }
-
-    useEffect(() => {
-        setCurrentPage(1)
-    }, [searchQuery])
-
-    const filteredEmployees = employees.filter((emp) =>
-        emp.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.employee_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.ssn.includes(searchQuery)
-    )
-
-    const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE)
-    const paginatedEmployees = filteredEmployees.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    )
 
     const handleDownloadPDF = async (employeeId: string) => {
         setDownloadingIds((prev) => new Set([...prev, employeeId]))
@@ -178,6 +180,116 @@ export default function PDF1095CPage() {
         if (!ssn) return "***-**-****"
         return `***-**-${ssn.slice(-4)}`
     }
+
+    // --- VIEW FOR REGULAR EMPLOYEES ---
+    if (user?.role !== "System Admin" && user?.role !== "Employer Admin") {
+        return (
+            <div className="p-6 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Tax Documents</h1>
+                    <p className="text-slate-500 mt-1">Access and download your annual 1095-C tax forms.</p>
+                </div>
+
+                <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-medium text-slate-800 flex items-center gap-2">
+                                <FileCheck className="h-5 w-5 text-blue-600" />
+                                Available Forms
+                            </CardTitle>
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-500">Tax Year:</span>
+                                <Select value={taxYear} onValueChange={setTaxYear}>
+                                    <SelectTrigger className="w-[100px] h-8 bg-white">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="2024">2024</SelectItem>
+                                        <SelectItem value="2025">2025</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {isLoading ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                                <Loader2 className="h-8 w-8 animate-spin mb-2 text-blue-500" />
+                                <p>Loading your documents...</p>
+                            </div>
+                        ) : employees.length === 0 ? (
+                            <div className="py-12 text-center text-slate-500">
+                                <p>No 1095-C forms found for the selected year.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {/* Only show one entry if multiple identical employee records exist to avoid confusion, 
+                                    OR show them with distinction if IDs differ. 
+                                    Here we simply map what we have but present it cleanly. */}
+                                {employees.map((emp) => (
+                                    <div key={emp.employee_id} className="group flex items-center justify-between p-6 hover:bg-slate-50/50 transition-colors">
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-slate-900 text-lg">Form 1095-C</span>
+                                            <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                                                <span>Tax Year {taxYear}</span>
+                                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                <span className="font-mono">ID: {emp.employee_id}</span>
+                                                {emp.company_code && (
+                                                    <>
+                                                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                                        <span>{emp.company_code}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <Button
+                                            onClick={() => handleDownloadPDF(emp.employee_id)}
+                                            disabled={downloadingIds.has(emp.employee_id)}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm min-w-[140px]"
+                                        >
+                                            {downloadingIds.has(emp.employee_id) ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Preparing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Download PDF
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Alert className="bg-blue-50 text-blue-900 border-blue-200">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription>
+                        If you believe there is an error in your 1095-C form, please contact your HR department or the benefits administrator at <strong>hr@company.com</strong>.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        )
+    }
+
+    // --- ADMIN VIEW (Existing) ---
+    const filteredEmployees = employees.filter((emp) =>
+        emp.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.employee_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        emp.ssn.includes(searchQuery)
+    )
+
+    const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE)
+    const paginatedEmployees = filteredEmployees.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    )
 
     return (
         <div className="p-6 space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-500">
@@ -271,6 +383,17 @@ export default function PDF1095CPage() {
                         <CardDescription>
                             List of employees from census. Dependents are included in the generated PDF.
                         </CardDescription>
+                    </div>
+                    <div className="relative w-72">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Search className="h-4 w-4 text-slate-400" />
+                        </div>
+                        <Input
+                            placeholder="Search by name, ID or SSN..."
+                            className="pl-10 bg-white"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">

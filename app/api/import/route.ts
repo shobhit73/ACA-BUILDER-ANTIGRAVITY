@@ -3,17 +3,48 @@ import { type NextRequest, NextResponse } from "next/server"
 
 // Helper to parse CSV
 function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.trim().split("\n")
+  const lines = text.trim().split(/\r?\n/)
   if (lines.length < 2) return []
 
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""))
+  // Robust CSV line parser that handles quoted strings containing commas
+  const parseLine = (line: string): string[] => {
+    const values: string[] = []
+    let currentValue = ""
+    let insideQuotes = false
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+
+      if (char === '"') {
+        if (insideQuotes && line[i + 1] === '"') {
+          currentValue += '"' // Handle escaped quotes
+          i++
+        } else {
+          insideQuotes = !insideQuotes
+        }
+      } else if (char === "," && !insideQuotes) {
+        values.push(currentValue.trim())
+        currentValue = ""
+      } else {
+        currentValue += char
+      }
+    }
+    values.push(currentValue.trim())
+    return values
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, "").trim())
   const rows: Record<string, string>[] = []
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""))
+    const line = lines[i].trim()
+    if (!line) continue // Skip empty lines
+
+    const values = parseLine(line).map(v => v.replace(/^"|"$/g, ""))
     const row: Record<string, string> = {}
+
     headers.forEach((header, index) => {
-      row[header] = values[index] || ""
+      row[header] = values[index] !== undefined ? values[index] : ""
     })
     rows.push(row)
   }
@@ -271,69 +302,93 @@ export async function POST(request: NextRequest) {
 
           switch (type) {
             case "Company_Details":
-              validationError = validateRequiredFields(row, ["Company Code", "Company Name"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
+              const companyCode = row["Company Code"] || row["company_code"]
+              const companyName = row["Company Name"] || row["company_name"]
+
+              if (!companyCode || !companyCode.trim()) {
+                validationError = { rowNumber, rowData: row, error: "Missing required field: Company Code", errorType: "missing_field", field: "Company Code" }
+                throw validationError
+              }
+              if (!companyName || !companyName.trim()) {
+                validationError = { rowNumber, rowData: row, error: "Missing required field: Company Name", errorType: "missing_field", field: "Company Name" }
                 throw validationError
               }
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_company_details", {
-                  p_company_code: row["Company Code"],
-                  p_company_name: row["Company Name"],
-                  p_dba_name: row["DBA Name"] || null,
-                  p_ein: row["Company EIN"] || null,
-                  p_address_line_1: row["Address Line 1"] || null,
-                  p_address_line_2: row["Address Line 2"] || null,
-                  p_city: row["City"] || null,
-                  p_state: row["State"] || null,
-                  p_zip_code: row["Zip"] || null,
-                  p_country: row["Country"] || null,
-                  p_contact_name: row["Contact Name"] || null,
-                  p_contact_phone: row["Phone Number"] || null,
-                  p_contact_email: row["Contact Email"] || null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_company_code: companyCode,
+                  p_company_name: companyName,
+                  p_dba_name: row["DBA Name"] || row["dba_name"] || null,
+                  p_ein: row["Company EIN"] || row["ein"] || null,
+                  p_address_line_1: row["Address Line 1"] || row["address_line_1"] || null,
+                  p_address_line_2: row["Address Line 2"] || row["address_line_2"] || null,
+                  p_city: row["City"] || row["city"] || null,
+                  p_state: row["State"] || row["state"] || null,
+                  p_zip_code: row["Zip"] || row["zip_code"] || null,
+                  p_country: row["Country"] || row["country"] || null,
+                  p_contact_name: row["Contact Name"] || row["contact_name"] || null,
+                  p_contact_phone: row["Phone Number"] || row["contact_phone"] || null,
+                  p_contact_email: row["Contact Email"] || row["contact_email"] || null,
+                  // New 1094-C Fields
+                  p_is_authoritative_transmittal: parseBoolean(row["Is Authoritative"] || row["is_authoritative_transmittal"]),
+                  p_is_agg_ale_group: parseBoolean(row["Is Aggregated Group"] || row["is_agg_ale_group"]),
+                  p_cert_qualifying_offer: parseBoolean(row["Cert Qualifying Offer"] || row["cert_qualifying_offer"]),
+                  p_cert_98_percent_offer: parseBoolean(row["Cert 98% Offer"] || row["cert_98_percent_offer"]),
+
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Plan_Master":
-              validationError = validateRequiredFields(row, ["Company Code", "Plan Code", "Plan Name"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const pmCompanyCode = row["Company Code"] || row["company_code"]
+              const pmPlanCode = row["Plan Code"] || row["plan_code"]
+              const pmPlanName = row["Plan Name"] || row["plan_name"]
+
+              if (!pmCompanyCode || !pmCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!pmPlanCode || !pmPlanCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Plan Code", errorType: "missing_field" } as RowError
+              if (!pmPlanName || !pmPlanName.trim()) throw { rowNumber, rowData: row, error: "Missing: Plan Name", errorType: "missing_field" } as RowError
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_plan_master", {
-                  p_company_code: row["Company Code"],
-                  p_plan_code: row["Plan Code"],
-                  p_plan_name: row["Plan Name"],
-                  p_plan_type: row["Plan Type"] || null,
-                  p_mvc: parseBooleanYN(row["MVC"]),
-                  p_me: parseBooleanYN(row["ME"]),
-                  p_plan_affordable_cost: row["Plan Affordable Cost"]
-                    ? Number.parseFloat(row["Plan Affordable Cost"])
+                  p_company_code: pmCompanyCode,
+                  p_plan_code: pmPlanCode,
+                  p_plan_name: pmPlanName,
+                  p_plan_type: row["Plan Type"] || row["plan_type"] || null,
+                  p_mvc: parseBooleanYN(row["MVC"] || row["mvc"]),
+                  p_me: parseBooleanYN(row["ME"] || row["me"]),
+                  p_plan_affordable_cost: (row["Plan Affordable Cost"] || row["plan_affordable_cost"])
+                    ? Number.parseFloat(row["Plan Affordable Cost"] || row["plan_affordable_cost"])
                     : null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_option_emp: row["option_emp"] ? Number.parseFloat(row["option_emp"]) : null,
+                  p_option_emp_spouse: row["option_emp_spouse"] ? Number.parseFloat(row["option_emp_spouse"]) : null,
+                  p_option_emp_child: row["option_emp_child"] ? Number.parseFloat(row["option_emp_child"]) : null,
+                  p_option_emp_family: row["option_emp_family"] ? Number.parseFloat(row["option_emp_family"]) : null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Employee_Census":
-              validationError = validateRequiredFields(row, ["Company Code", "EmployeeID", "First Name", "Last Name"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const ecCompanyCode = row["Company Code"] || row["company_code"]
+              const ecEmployeeID = row["EmployeeID"] || row["employee_id"] || row["employeeid"]
+              const ecFirstName = row["First Name"] || row["first_name"]
+              const ecLastName = row["Last Name"] || row["last_name"]
 
-              const fteError = validateNumericField(row["Full Time Equivalent"], "Full Time Equivalent")
-              if (fteError) {
+              if (!ecCompanyCode || !ecCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!ecEmployeeID || !ecEmployeeID.trim()) throw { rowNumber, rowData: row, error: "Missing: EmployeeID", errorType: "missing_field" } as RowError
+              if (!ecFirstName || !ecFirstName.trim()) throw { rowNumber, rowData: row, error: "Missing: First Name", errorType: "missing_field" } as RowError
+              if (!ecLastName || !ecLastName.trim()) throw { rowNumber, rowData: row, error: "Missing: Last Name", errorType: "missing_field" } as RowError
+
+              const fteValue = row["Full Time Equivalent"] || row["full_time_equivalent"]
+              const fteError = validateNumericField(fteValue || "", "Full Time Equivalent")
+              if (fteValue && fteError) {
                 fteError.rowNumber = rowNumber
                 fteError.rowData = row
                 throw fteError
@@ -341,235 +396,261 @@ export async function POST(request: NextRequest) {
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_employee_census", {
-                  p_company_code: row["Company Code"],
-                  p_employee_id: row["EmployeeID"],
-                  p_first_name: row["First Name"],
-                  p_middle_name: row["Middle Initial"] || null,
-                  p_last_name: row["Last Name"],
-                  p_ssn: row["SSN"] || null,
-                  p_date_of_birth: parseDate(row["Date of Birth"]),
-                  p_gender: row["Gender"] || null,
-                  p_hire_date: parseDate(row["Start Date"]),
-                  p_termination_date: parseDate(row["End Date"]),
-                  p_employment_status: row["Employee Status Code"] || null,
-                  p_job_title: row["Job Title"] || null,
-                  p_department: row["Department"] || null,
-                  p_full_time_equivalent: row["Full Time Equivalent"]
-                    ? Number.parseFloat(row["Full Time Equivalent"])
-                    : null,
-                  p_pay_frequency: transformPayFrequency(row["Pay Frequency"]),
-                  p_employment_type_code: transformEmploymentType(row["Employment Type Code"]),
-                  p_email: row["Email"] || null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_company_code: ecCompanyCode,
+                  p_employee_id: normalizeEmployeeId(ecEmployeeID),
+                  p_first_name: ecFirstName,
+                  p_middle_name: row["Middle Initial"] || row["middle_name"] || null,
+                  p_last_name: ecLastName,
+                  p_ssn: row["SSN"] || row["ssn"] || null,
+                  p_date_of_birth: parseDate(row["Date of Birth"] || row["date_of_birth"]),
+                  p_gender: row["Gender"] || row["gender"] || null,
+                  p_hire_date: parseDate(row["Start Date"] || row["hire_date"] || row["start_date"]),
+                  p_termination_date: parseDate(row["End Date"] || row["termination_date"] || row["end_date"]),
+                  p_employment_status: row["Employee Status Code"] || row["employment_status"] || null,
+                  p_job_title: row["Job Title"] || row["job_title"] || null,
+                  p_department: row["Department"] || row["department"] || null,
+                  p_full_time_equivalent: fteValue ? Number.parseFloat(fteValue) : null,
+                  p_pay_frequency: transformPayFrequency(row["Pay Frequency"] || row["pay_frequency"]),
+                  p_employment_type_code: transformEmploymentType(row["Employment Type Code"] || row["employment_type_code"]),
+                  p_email: row["Email"] || row["email"] || null,
+                  p_employee_category: row["employee_category"] || null,
+                  p_notes: row["notes"] || null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Employee_Address":
-              validationError = validateRequiredFields(row, ["Company Code", "EmployeeID"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const eaCompanyCode = row["Company Code"] || row["company_code"]
+              const eaEmployeeID = row["EmployeeID"] || row["employee_id"]
+
+              if (!eaCompanyCode || !eaCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!eaEmployeeID || !eaEmployeeID.trim()) throw { rowNumber, rowData: row, error: "Missing: EmployeeID", errorType: "missing_field" } as RowError
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_employee_address", {
-                  p_company_code: row["Company Code"],
-                  p_employee_id: row["EmployeeID"],
-                  p_effective_date: parseDate(row["Address Start Date"]) || new Date().toISOString().split("T")[0],
-                  p_address_line_1: row["AddressLine1"] || null,
-                  p_address_line_2: row["Address Line 2"] || null,
-                  p_city: row["City"] || null,
-                  p_state: row["State"] || null,
-                  p_zip_code: row["ZipCode"] || null,
-                  p_county: row["County"] || null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_company_code: eaCompanyCode,
+                  p_employee_id: normalizeEmployeeId(eaEmployeeID),
+                  p_effective_date: parseDate(row["Address Start Date"] || row["effective_date"] || row["address_start_date"]) || new Date().toISOString().split("T")[0],
+                  p_address_line_1: row["AddressLine1"] || row["address_line_1"] || null,
+                  p_address_line_2: row["Address Line 2"] || row["address_line_2"] || null,
+                  p_city: row["City"] || row["city"] || null,
+                  p_state: row["State"] || row["state"] || null,
+                  p_zip_code: row["ZipCode"] || row["zip_code"] || null,
+                  p_county: row["County"] || row["county"] || null,
+                  p_country: row["Country"] || row["country"] || null,
+                  p_address_end_date: parseDate(row["address_end_date"]),
+                  p_notes: row["notes"] || null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Employee_Waiting_Period":
-              validationError = validateRequiredFields(row, ["Company Code", "EmployeeID"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const ewpCompanyCode = row["Company Code"] || row["company_code"]
+              const ewpEmployeeID = row["EmployeeID"] || row["employee_id"]
+
+              if (!ewpCompanyCode || !ewpCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!ewpEmployeeID || !ewpEmployeeID.trim()) throw { rowNumber, rowData: row, error: "Missing: EmployeeID", errorType: "missing_field" } as RowError
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_employee_waiting_period", {
-                  p_company_code: row["Company Code"],
-                  p_employee_id: row["EmployeeID"],
-                  p_waiting_period_end_date: parseDate(row["Effective Date"]),
-                  p_is_waiting_period_waived: parseBoolean(row["Is Waiting Period Waived"]),
-                  p_waiver_reason: row["Waiver Reason"] || null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_company_code: ewpCompanyCode,
+                  p_employee_id: normalizeEmployeeId(ewpEmployeeID),
+                  p_plan_code: row["plan_code"] || null,
+                  p_effective_date: parseDate(row["effective_date"]),
+                  p_waiting_period_end_date: parseDate(row["Effective Date"] || row["waiting_period_end_date"]),
+                  p_wait_period_days: (row["wait_period_days"]) ? Number.parseInt(row["wait_period_days"]) : null,
+                  p_is_waiting_period_waived: parseBoolean(row["Is Waiting Period Waived"] || row["is_waiting_period_waived"]),
+                  p_waiver_reason: row["Waiver Reason"] || row["waiver_reason"] || null,
+                  p_category_code: row["category_code"] || null,
+                  p_benefit_class: row["benefit_class"] || null,
+                  p_measurement_type: row["measurement_type"] || null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Employee_Plan_Eligibility":
-              validationError = validateRequiredFields(row, ["Company Code", "EmployeeID", "Plan Code"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const epeCompanyCode = row["Company Code"] || row["company_code"]
+              const epeEmployeeID = row["EmployeeID"] || row["employee_id"]
+              const epePlanCode = row["Plan Code"] || row["plan_code"]
 
-              const normalizedEligibilityEmployeeId = normalizeEmployeeId(row["EmployeeID"])
+              if (!epeCompanyCode || !epeCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!epeEmployeeID || !epeEmployeeID.trim()) throw { rowNumber, rowData: row, error: "Missing: EmployeeID", errorType: "missing_field" } as RowError
+              if (!epePlanCode || !epePlanCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Plan Code", errorType: "missing_field" } as RowError
+
+              const normalizedEligibilityEmployeeId = normalizeEmployeeId(epeEmployeeID)
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_employee_plan_eligibility", {
-                  p_company_code: row["Company Code"],
+                  p_company_code: epeCompanyCode,
                   p_employee_id: normalizedEligibilityEmployeeId,
-                  p_plan_code: String(row["Plan Code"]),
+                  p_plan_code: String(epePlanCode),
                   p_eligibility_start_date:
-                    toDateString(parseDate(row["Effective Date"])) || new Date().toISOString().split("T")[0],
-                  p_eligibility_end_date: toDateString(parseDate(row["Expiry Date"])),
-                  p_eligibility_status: "Active",
-                  p_benefit_class: row["Benefit Class"] || null,
-                  p_measurement_type: row["Measurement_Type"] || null,
-                  p_option_code: row["Option Code"] || null,
-                  p_plan_cost: row["Plan Cost"] ? Number.parseFloat(row["Plan Cost"]) : null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: toDateString(parseDate(row["Add Date"])),
+                    toDateString(parseDate(row["Effective Date"] || row["eligibility_start_date"])) || new Date().toISOString().split("T")[0],
+                  p_eligibility_end_date: toDateString(parseDate(row["Expiry Date"] || row["eligibility_end_date"])),
+                  p_eligibility_status: row["eligibility_status"] || "Active",
+                  p_benefit_class: row["Benefit Class"] || row["benefit_class"] || null,
+                  p_measurement_type: row["Measurement_Type"] || row["measurement_type"] || null,
+                  p_option_code: row["Option Code"] || row["option_code"] || null,
+                  p_plan_cost: (row["Plan Cost"] || row["plan_cost"]) ? Number.parseFloat(row["Plan Cost"] || row["plan_cost"]) : null,
+                  p_category_code: row["category_code"] || null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: toDateString(parseDate(row["Add Date"] || row["add_date"])),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Employee_Plan_Enrollment":
-              validationError = validateRequiredFields(row, [
-                "Enrollment ID",
-                "Company Code",
-                "EmployeeID",
-                "Plan Code",
-              ])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const epEnrollmentID = row["Enrollment ID"] || row["enrollment_id"]
+              const epCompanyCode = row["Company Code"] || row["company_code"]
+              const epEmployeeID = row["EmployeeID"] || row["employee_id"]
+              const epPlanCode = row["Plan Code"] || row["plan_code"]
 
-              const normalizedEnrollmentEmployeeId = normalizeEmployeeId(row["EmployeeID"])
+              if (!epEnrollmentID || !epEnrollmentID.trim()) throw { rowNumber, rowData: row, error: "Missing: Enrollment ID", errorType: "missing_field" } as RowError
+              if (!epCompanyCode || !epCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!epEmployeeID || !epEmployeeID.trim()) throw { rowNumber, rowData: row, error: "Missing: EmployeeID", errorType: "missing_field" } as RowError
+              if (!epPlanCode || !epPlanCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Plan Code", errorType: "missing_field" } as RowError
+
+              const normalizedEnrollmentEmployeeId = normalizeEmployeeId(epEmployeeID)
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_employee_plan_enrollment", {
-                  p_enrollment_id: row["Enrollment ID"],
-                  p_company_code: row["Company Code"],
+                  p_enrollment_id: epEnrollmentID,
+                  p_company_code: epCompanyCode,
                   p_employee_id: normalizedEnrollmentEmployeeId,
-                  p_plan_code: String(row["Plan Code"]),
+                  p_plan_code: String(epPlanCode),
                   p_enrollment_date:
-                    toDateString(parseDate(row["Event Date"])) || new Date().toISOString().split("T")[0],
+                    toDateString(parseDate(row["Event Date"] || row["enrollment_date"])) || new Date().toISOString().split("T")[0],
                   p_effective_date:
-                    toDateString(parseDate(row["Effective Date"])) || new Date().toISOString().split("T")[0],
-                  p_termination_date: toDateString(parseDate(row["Expiry Date"])),
-                  p_coverage_tier: row["Category Code"] || null,
-                  p_enrollment_status: transformEnrollmentCode(row["Enrollment Code"]),
-                  p_enrollment_event: row["Enrollment Event"] || null,
-                  p_option_code: row["Option Code"] || null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: toDateString(parseDate(row["Add Date"])),
+                    toDateString(parseDate(row["Effective Date"] || row["effective_date"])) || new Date().toISOString().split("T")[0],
+                  p_termination_date: toDateString(parseDate(row["Expiry Date"] || row["termination_date"])),
+                  p_coverage_tier: row["Category Code"] || row["coverage_tier"] || null,
+                  p_enrollment_status: transformEnrollmentCode(row["Enrollment Code"] || row["enrollment_status"]),
+                  p_enrollment_event: row["Enrollment Event"] || row["enrollment_event"] || null,
+                  p_option_code: row["Option Code"] || row["option_code"] || null,
+                  p_category_code: row["category_code"] || null,
+                  p_benefit_class: row["benefit_class"] || null,
+                  p_measurement_type: row["measurement_type"] || null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: toDateString(parseDate(row["Add Date"] || row["add_date"])),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Employee_Dependent":
-              validationError = validateRequiredFields(row, [
-                "Company Code",
-                "EmployeeID",
-                "DependentID",
-                "First Name",
-                "Last Name",
-              ])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const edCompanyCode = row["Company Code"] || row["company_code"]
+              const edEmployeeID = row["EmployeeID"] || row["employee_id"]
+              const edDependentID = row["DependentID"] || row["dependent_id"]
+              const edFirstName = row["First Name"] || row["first_name"]
+              const edLastName = row["Last Name"] || row["last_name"]
+
+              if (!edCompanyCode || !edCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!edEmployeeID || !edEmployeeID.trim()) throw { rowNumber, rowData: row, error: "Missing: EmployeeID", errorType: "missing_field" } as RowError
+              if (!edDependentID || !edDependentID.trim()) throw { rowNumber, rowData: row, error: "Missing: DependentID", errorType: "missing_field" } as RowError
+              if (!edFirstName || !edFirstName.trim()) throw { rowNumber, rowData: row, error: "Missing: First Name", errorType: "missing_field" } as RowError
+              if (!edLastName || !edLastName.trim()) throw { rowNumber, rowData: row, error: "Missing: Last Name", errorType: "missing_field" } as RowError
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_employee_dependent", {
-                  p_company_code: row["Company Code"],
-                  p_employee_id: row["EmployeeID"],
-                  p_dependent_id: row["DependentID"],
-                  p_first_name: row["First Name"],
-                  p_middle_name: row["Middle Initial"] || null,
-                  p_last_name: row["Last Name"],
-                  p_ssn: row["SSN"] || row["dependent_ssn"] || null,
-                  p_date_of_birth: parseDate(row["Date of Birth"]),
-                  p_gender: row["Gender"] || null,
-                  p_relationship: row["Relationship Code"] || null,
-                  p_is_disabled: parseBoolean(row["Is Disabled"]),
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_company_code: edCompanyCode,
+                  p_employee_id: normalizeEmployeeId(edEmployeeID),
+                  p_dependent_id: edDependentID,
+                  p_first_name: edFirstName,
+                  p_middle_name: row["Middle Initial"] || row["middle_name"] || null,
+                  p_last_name: edLastName,
+                  p_ssn: row["SSN"] || row["ssn"] || row["dependent_ssn"] || null,
+                  p_date_of_birth: parseDate(row["Date of Birth"] || row["date_of_birth"]),
+                  p_gender: row["Gender"] || row["gender"] || null,
+                  p_relationship: row["Relationship Code"] || row["relationship"] || null,
+                  p_is_disabled: parseBoolean(row["Is Disabled"] || row["is_disabled"]),
+                  p_enrollment_id: row["enrollment_id"] || null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Plan_Enrollment_Cost":
-              validationError = validateRequiredFields(row, ["Enrollment ID"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
-              }
+              const pecEnrollmentID = row["Enrollment ID"] || row["enrollment_id"]
+              if (!pecEnrollmentID || !pecEnrollmentID.trim()) throw { rowNumber, rowData: row, error: "Missing: Enrollment ID", errorType: "missing_field" } as RowError
 
-              const employeeCostError = validateNumericField(row["Employee Cost"], "Employee Cost")
-              if (employeeCostError) {
-                employeeCostError.rowNumber = rowNumber
-                employeeCostError.rowData = row
-                throw employeeCostError
+              const pecEmployeeCostVal = row["Employee Cost"] || row["employee_cost"]
+              const pecEmployeeCostError = validateNumericField(pecEmployeeCostVal || "", "Employee Cost")
+              if (pecEmployeeCostVal && pecEmployeeCostError) {
+                pecEmployeeCostError.rowNumber = rowNumber
+                pecEmployeeCostError.rowData = row
+                throw pecEmployeeCostError
               }
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_plan_enrollment_cost", {
-                  p_enrollment_id: row["Enrollment ID"],
-                  p_cost_period_start: parseDate(row["Effective Date"]) || new Date().toISOString().split("T")[0],
-                  p_cost_period_end: parseDate(row["Expiry Date"]) || new Date().toISOString().split("T")[0],
-                  p_employee_cost: row["Employee Cost"] ? Number.parseFloat(row["Employee Cost"]) : null,
-                  p_employer_cost: row["Employer Cost"] ? Number.parseFloat(row["Employer Cost"]) : null,
-                  p_total_cost: row["Plan Cost"] ? Number.parseFloat(row["Plan Cost"]) : null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_enrollment_id: pecEnrollmentID,
+                  p_cost_period_start: parseDate(row["Effective Date"] || row["cost_period_start"]) || new Date().toISOString().split("T")[0],
+                  p_cost_period_end: parseDate(row["Expiry Date"] || row["cost_period_end"]) || new Date().toISOString().split("T")[0],
+                  p_employee_cost: pecEmployeeCostVal ? Number.parseFloat(pecEmployeeCostVal) : null,
+                  p_employer_cost: (row["Employer Cost"] || row["employer_cost"]) ? Number.parseFloat(row["Employer Cost"] || row["employer_cost"]) : null,
+                  p_total_cost: (row["Plan Cost"] || row["total_cost"]) ? Number.parseFloat(row["Plan Cost"] || row["total_cost"]) : null,
+                  p_coverage_id: row["coverage_id"] || null,
+                  p_category_code: row["category_code"] || null,
+                  p_benefit_class: row["benefit_class"] || null,
+                  p_measurement_type: row["measurement_type"] || null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break
 
             case "Payroll_Hours":
-              validationError = validateRequiredFields(row, ["Company Code", "Employee_ID"])
-              if (validationError) {
-                validationError.rowNumber = rowNumber
-                validationError.rowData = row
-                throw validationError
+              const phCompanyCode = row["Company Code"] || row["company_code"]
+              const phEmployeeID = row["Employee_ID"] || row["employee_id"]
+
+              if (!phCompanyCode || !phCompanyCode.trim()) throw { rowNumber, rowData: row, error: "Missing: Company Code", errorType: "missing_field" } as RowError
+              if (!phEmployeeID || !phEmployeeID.trim()) throw { rowNumber, rowData: row, error: "Missing: Employee_ID", errorType: "missing_field" } as RowError
+
+              const phHoursVal = row["Hours_Service"] || row["hours_service"] || row["hours_worked"]
+              const phHoursError = validateNumericField(phHoursVal || "", "Hours_Service")
+              if (phHoursVal && phHoursError) {
+                phHoursError.rowNumber = rowNumber
+                phHoursError.rowData = row
+                throw phHoursError
               }
 
-              const hoursError = validateNumericField(row["Hours_Service"], "Hours_Service")
-              if (hoursError) {
-                hoursError.rowNumber = rowNumber
-                hoursError.rowData = row
-                throw hoursError
-              }
-
-              const rawEmployeeId = row["Employee_ID"]
-              const normalizedEmployeeId = normalizeEmployeeId(rawEmployeeId) // Use normalized ID to avoid FK violations
+              const normalizedEmployeeId = normalizeEmployeeId(phEmployeeID) // Use normalized ID to avoid FK violations
 
               result = await retryOperation(async () =>
                 await supabase.rpc("upsert_payroll_hours", {
-                  p_company_code: row["Company Code"],
+                  p_company_code: phCompanyCode,
                   p_employee_id: normalizedEmployeeId,
-                  p_pay_period_start: parseDate(row["Pay_Period_Start"]) || new Date().toISOString().split("T")[0],
-                  p_pay_period_end: parseDate(row["Pay_Period_End"]) || new Date().toISOString().split("T")[0],
-                  p_hours_worked: row["Hours_Service"] ? Number.parseFloat(row["Hours_Service"]) : null,
-                  p_regular_hours: row["Hours_Service"] ? Number.parseFloat(row["Hours_Service"]) : null,
-                  p_overtime_hours: null,
-                  p_gross_wages: row["Gross_Wages"] ? Number.parseFloat(row["Gross_Wages"]) : null,
-                  p_month: row["Month"] ? Number.parseInt(row["Month"]) : null,
-                  p_add_name: row["Add Name"] || null,
-                  p_add_date: parseDate(row["Add Date"]),
+                  p_pay_period_start: parseDate(row["Pay_Period_Start"] || row["pay_period_start"]) || new Date().toISOString().split("T")[0],
+                  p_pay_period_end: parseDate(row["Pay_Period_End"] || row["pay_period_end"]) || new Date().toISOString().split("T")[0],
+                  p_hours_worked: phHoursVal ? Number.parseFloat(phHoursVal) : null,
+                  p_regular_hours: (row["Regular_Hours"] || row["regular_hours"]) ? Number.parseFloat(row["Regular_Hours"] || row["regular_hours"]) : (phHoursVal ? Number.parseFloat(phHoursVal) : null),
+                  p_overtime_hours: row["overtime_hours"] ? Number.parseFloat(row["overtime_hours"]) : null,
+                  p_gross_wages: (row["Gross_Wages"] || row["gross_wages"]) ? Number.parseFloat(row["Gross_Wages"] || row["gross_wages"]) : null,
+                  p_month: (row["Month"] || row["month"]) ? Number.parseInt(row["Month"] || row["month"]) : null,
+                  p_add_name: row["Add Name"] || row["add_name"] || null,
+                  p_add_date: parseDate(row["Add Date"] || row["add_date"]),
+                  p_modified_by: row["modified_by"] || null,
+                  p_modified_on: parseDate(row["modified_on"]),
                 }),
               )
               break

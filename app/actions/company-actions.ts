@@ -2,76 +2,25 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 
-export type ModuleCode =
-    | "import_data"
-    | "view_data"
-    | "plan_configuration"
-    | "generate_reports"
-    | "aca_report"
-    | "pdf_1095c"
-    | "aca_penalties"
-
-export interface CreateCompanyState {
-    message?: string
-    error?: string
-    success?: boolean
-}
-
-export async function createCompany(prevState: CreateCompanyState, formData: FormData): Promise<CreateCompanyState> {
+export async function toggleCompanyStatus(companyCode: string, newStatus: boolean) {
     const supabase = await createClient()
 
-    const companyName = formData.get("companyName") as string
-    const companyCode = formData.get("companyCode") as string
-    const contactEmail = formData.get("contactEmail") as string
-
-    // Optional modules
-    const generateReports = formData.get("generateReports") === "on"
-    const acaReport = formData.get("acaReport") === "on"
-    const pdf1095c = formData.get("pdf1095c") === "on"
-    const acaPenalties = formData.get("acaPenalties") === "on"
-
-    if (!companyName || !companyCode || !contactEmail) {
-        return { error: "Please fill in all required fields." }
-    }
-
     try {
-        // 1. Create Company
-        const { error: companyError } = await supabase.rpc("upsert_company_details", {
-            p_company_code: companyCode,
-            p_company_name: companyName,
-            p_contact_email: contactEmail,
-            p_country: null, // Explicitly pass country to match the new function signature and avoid ambiguity
-            // Add other default fields if necessary or allow nulls
-        })
+        const { error } = await supabase
+            .from("company_details")
+            .update({ is_active: newStatus })
+            .eq("company_code", companyCode)
 
-        if (companyError) {
-            console.error("Error creating company:", companyError)
-            return { error: `Failed to create company: ${companyError.message}` }
+        if (error) {
+            console.error("Error toggling company status:", error)
+            return { error: error.message }
         }
 
-        // 2. Assign Default Modules (Always Enabled)
-        const defaultModules: ModuleCode[] = ["import_data", "view_data", "plan_configuration"]
-        for (const module of defaultModules) {
-            await supabase.rpc("upsert_company_module", {
-                p_company_code: companyCode,
-                p_module_code: module,
-                p_is_enabled: true
-            })
-        }
-
-        // 3. Assign Optional Modules
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "generate_reports", p_is_enabled: generateReports })
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "aca_report", p_is_enabled: acaReport })
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "pdf_1095c", p_is_enabled: pdf1095c })
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "aca_penalties", p_is_enabled: acaPenalties })
-
-        revalidatePath("/admin/companies")
-        return { success: true, message: "Company created successfully!" }
+        revalidatePath("/settings/company")
+        return { success: true }
     } catch (error: any) {
-        console.error("Unexpected error:", error)
-        return { error: error.message || "An unexpected error occurred." }
+        return { error: error.message || "Failed to update company status" }
     }
 }
 
@@ -79,71 +28,218 @@ export async function getCompanyDetails(companyCode: string) {
     const supabase = await createClient()
 
     try {
-        const { data: company, error } = await supabase
+        const { data: company, error: companyError } = await supabase
             .from("company_details")
             .select("*")
             .eq("company_code", companyCode)
             .single()
 
-        if (error) throw error
+        if (companyError) throw new Error(companyError.message)
 
-        const { data: modules } = await supabase
-            .from("company_modules")
-            .select("module_code")
+        const { data: modules, error: modulesError } = await supabase
+            .from("company_module")
+            .select("module_code, is_enabled")
             .eq("company_code", companyCode)
-            .eq("is_enabled", true)
+
+        if (modulesError) throw new Error(modulesError.message)
+
+        const activeModules = modules?.filter(m => m.is_enabled).map(m => m.module_code) || []
 
         return {
             ...company,
-            modules: modules?.map((m: any) => m.module_code) || []
+            modules: activeModules
         }
     } catch (error: any) {
         console.error("Error fetching company details:", error)
-        return { error: "Failed to fetch company details" }
+        return { error: error.message }
     }
 }
 
-export async function updateCompany(companyCode: string, prevState: CreateCompanyState, formData: FormData): Promise<CreateCompanyState> {
+/**
+ * Updates company details or module configuration based on the form submission type.
+ * Handles split forms (Details vs Modules) to prevent data loss.
+ *
+ * @param companyCode - The unique identifier for the company
+ * @param prevState - Previous form state (for useFormState)
+ * @param formData - Form data containing invalid keys or 'formType' discriminator
+ */
+export async function updateCompany(companyCode: string, prevState: any, formData: FormData) {
     const supabase = await createClient()
 
-    const companyName = formData.get("companyName") as string
-    const contactEmail = formData.get("contactEmail") as string
-
-    const generateReports = formData.get("generateReports") === "on"
-    const acaReport = formData.get("acaReport") === "on"
-    const pdf1095c = formData.get("pdf1095c") === "on"
-    const acaPenalties = formData.get("acaPenalties") === "on"
-
     try {
-        // 1. Update Company Details
-        const { error: companyError } = await supabase.rpc("upsert_company_details", {
-            p_company_code: companyCode,
-            p_company_name: companyName,
-            p_contact_email: contactEmail,
-            p_country: null,
-            // Add other fields if necessary, preserving existing values would require fetching them first or passing them all
-            // For now, upsert might overwrite nulls if not careful, but our SQL function handles defaults.
-            // Ideally we should pass all fields or use a specific update query.
-            // Given the SQL function, it updates all fields. We should probably fetch and merge or just update what we have.
-            // Since this is an admin edit, we assume we are updating the main fields.
-        })
+        // Get Current User for Audit Trail
+        const { data: { user } } = await supabase.auth.getUser()
 
-        if (companyError) {
-            return { error: `Failed to update company: ${companyError.message}` }
+        const formType = formData.get("formType") as string // "details" or "modules"
+
+        if (formType === "details") {
+            const rawData = {
+                company_name: formData.get("companyName") as string,
+                contact_email: formData.get("contactEmail") as string,
+                ein: formData.get("ein") as string,
+                contact_phone: formData.get("contactPhone") as string,
+                contact_name: formData.get("contactName") as string,
+                address_line_1: formData.get("addressLine1") as string,
+                city: formData.get("city") as string,
+                state: formData.get("state") as string,
+                zip_code: formData.get("zipCode") as string,
+
+                is_authoritative_transmittal: formData.get("isAuthoritative") === "on",
+                is_agg_ale_group: formData.get("isAggregatedGroup") === "on",
+                cert_qualifying_offer: formData.get("certQualifyingOffer") === "on",
+                cert_98_percent_offer: formData.get("cert98PercentOffer") === "on",
+
+                // Audit Trail
+                modified_by: user?.id || null,
+                modified_on: new Date().toISOString()
+            }
+
+            // Validate required fields
+            if (!rawData.company_name) return { error: "Company Name is required" }
+            if (!rawData.contact_email) return { error: "Contact Email is required" }
+
+            const { error } = await supabase
+                .from("company_details")
+                .update(rawData)
+                .eq("company_code", companyCode)
+
+            if (error) throw new Error(error.message)
+
+        } else if (formType === "modules") {
+            const moduleMapping: Record<string, string> = {
+                "generateReports": "generate_reports",
+                "acaReport": "aca_report",
+                "pdf1095c": "pdf_1095c",
+                "pdf1094c": "pdf_1094c",
+                "acaPenalties": "aca_penalties"
+            }
+
+            // Core modules are always active
+            const activeModules: string[] = ["import_data", "view_data", "plan_configuration"]
+
+            for (const [formId, moduleCode] of Object.entries(moduleMapping)) {
+                const isEnabled = formData.get(formId) === "on"
+                if (isEnabled) {
+                    activeModules.push(moduleCode)
+                }
+
+                // Sync legacy/relational table
+                const { error: moduleError } = await supabase
+                    .from("company_module")
+                    .upsert({
+                        company_code: companyCode,
+                        module_code: moduleCode,
+                        is_enabled: isEnabled,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: "company_code, module_code" })
+
+                if (moduleError) console.error(`Error updating module ${moduleCode}:`, moduleError)
+            }
+
+            // Update Company Details (modules array only)
+            const { error: updateError } = await supabase
+                .from("company_details")
+                .update({
+                    modules: activeModules, // <<< Sync the array column
+                    modified_by: user?.id || null,
+                    modified_on: new Date().toISOString()
+                })
+                .eq("company_code", companyCode)
+
+            if (updateError) throw new Error(updateError.message)
+        } else {
+            // Fallback: If no formType (shouldn't happen with new frontend), try to guess or return error
+            // Assuming safer to error or do nothing than partial wipe
+            return { error: "Invalid form submission type." }
         }
 
-        // 2. Update Modules
-        // We need to explicitly set enabled/disabled for all optional modules
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "generate_reports", p_is_enabled: generateReports })
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "aca_report", p_is_enabled: acaReport })
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "pdf_1095c", p_is_enabled: pdf1095c })
-        await supabase.rpc("upsert_company_module", { p_company_code: companyCode, p_module_code: "aca_penalties", p_is_enabled: acaPenalties })
-
-        revalidatePath("/admin/companies")
         revalidatePath(`/admin/companies/${companyCode}/edit`)
-        return { success: true, message: "Company updated successfully!" }
+        revalidatePath("/settings/company")
+
+        return { success: true, message: "Company updated successfully" }
     } catch (error: any) {
-        console.error("Unexpected error:", error)
-        return { error: error.message || "An unexpected error occurred." }
+        console.error("Error updating company:", error)
+        return { error: error.message || "Failed to update company" }
+    }
+}
+
+/**
+ * Creates a new company and initializes its default module configuration.
+ * By default, Core modules (Import, View, Plan) are enabled.
+ *
+ * @param prevState - Previous form state
+ * @param formData - Form data containing new company info
+ */
+export async function createCompany(prevState: any, formData: FormData) {
+    const supabase = await createClient()
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        const companyCode = formData.get("companyCode") as string
+        const companyName = formData.get("companyName") as string
+        const contactEmail = formData.get("contactEmail") as string
+
+        if (!companyCode || !companyName) {
+            return { error: "Company Code and Name are required" }
+        }
+
+        const moduleMapping: Record<string, string> = {
+            "generateReports": "generate_reports",
+            "acaReport": "aca_report",
+            "pdf1095c": "pdf_1095c",
+            "pdf1094c": "pdf_1094c",
+            "acaPenalties": "aca_penalties"
+        }
+
+        // Core modules are always active
+        const activeModules: string[] = ["import_data", "view_data", "plan_configuration"]
+
+        // Prepare relational inserts
+        const moduleInserts = []
+
+        for (const [formId, moduleCode] of Object.entries(moduleMapping)) {
+            const isEnabled = formData.get(formId) === "on"
+            if (isEnabled) {
+                activeModules.push(moduleCode)
+                moduleInserts.push({
+                    company_code: companyCode,
+                    module_code: moduleCode,
+                    is_enabled: true
+                })
+            }
+        }
+
+        const { error: insertError } = await supabase
+            .from("company_details")
+            .insert({
+                company_code: companyCode,
+                company_name: companyName,
+                contact_email: contactEmail,
+                updated_at: new Date().toISOString(),
+                is_active: true,
+                add_name: user?.id,
+                add_date: new Date().toISOString(),
+                modules: activeModules // <<< Sync array column
+            })
+
+        if (insertError) {
+            if (insertError.code === '23505') {
+                return { error: "Company with this code already exists" }
+            }
+            throw new Error(insertError.message)
+        }
+
+        // Insert relational modules if any
+        if (moduleInserts.length > 0) {
+            await supabase.from("company_module").insert(moduleInserts)
+        }
+
+        revalidatePath("/settings/company")
+        return { success: true, message: "Company created successfully" }
+
+    } catch (error: any) {
+        console.error("Error creating company:", error)
+        return { error: error.message || "Failed to create company" }
     }
 }

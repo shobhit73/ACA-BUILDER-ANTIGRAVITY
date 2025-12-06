@@ -1,0 +1,6 @@
+company_code,plan_code,plan_name,plan_type,mvc,me,plan_affordable_cost,option_emp,option_emp_spouse,option_emp_child,option_emp_family,add_name,add_date,modified_by,modified_on
+202,1,Acme Gold Medical,Medical,Y,Y,110,1,2,3,4,System_Admin,1/1/2025,,
+202,2,Acme Dental Plus,Dental,N,N,15,1,2,3,4,System_Admin,1/1/2025,,
+303,1,Beta HMO Basic,Medical,Y,Y,95,1,2,3,4,System_Admin,1/1/2025,,
+404,1,Gamma PPO Premier,Medical,Y,Y,125,1,2,3,4,System_Admin,1/1/2025,,
+404,2,Gamma Vision,Vision,N,N,10,1,2,3,4,System_Admin,1/1/2025,,

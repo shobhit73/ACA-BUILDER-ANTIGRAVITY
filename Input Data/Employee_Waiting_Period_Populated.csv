@@ -1,0 +1,6 @@
+company_code,employee_id,plan_code,effective_date,waiting_period_end_date,wait_period_days,is_waiting_period_waived,waiver_reason,category_code,benefit_class,measurement_type,add_name,add_date,modified_by,modified_on
+202,1025,1,2025-01-25,2025-02-24,30,N,,1,Full-Time,Monthly,System_Admin,2025-01-01,,
+202,1039,1,2025-10-20,2025-11-19,30,N,,1,Full-Time,Monthly,System_Admin,2025-01-01,,
+303,1080,1,2025-03-31,2025-04-30,30,N,,1,Full-Time,Monthly,System_Admin,2025-01-01,,
+303,1098,1,2025-12-21,2026-01-20,30,N,,1,Full-Time,Monthly,System_Admin,2025-01-01,,
+404,1135,1,2025-01-24,2025-02-23,30,N,,1,Full-Time,Monthly,System_Admin,2025-01-01,,

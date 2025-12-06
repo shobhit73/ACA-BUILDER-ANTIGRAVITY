@@ -1,0 +1,2 @@
+company_code,employee_id,pay_period_start,pay_period_end,hours_worked,regular_hours,overtime_hours,gross_wages,month,add_name,add_date
+CMP001,EMP001,2020-01-01,2020-01-15,80.00,80.00,0.00,2000.00,1,TestImport,2023-10-27

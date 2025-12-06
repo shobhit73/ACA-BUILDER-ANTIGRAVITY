@@ -1,0 +1,43 @@
+[
+  {
+    "id": "00b00317-270e-4d7a-b0e4-b7dc0e9271b8",
+    "email": "mary.williams@mailinator.com",
+    "profile_role": "system_admin"
+  },
+  {
+    "id": "7454e107-5c7d-4d61-8a57-2fd082f249ea",
+    "email": "john.davis@mailinator.com",
+    "profile_role": "system_admin"
+  },
+  {
+    "id": "4a6986b2-9532-41a4-9af4-1cdf488f5d6b",
+    "email": "william.johnson@mailinator.com",
+    "profile_role": "system_admin"
+  },
+  {
+    "id": "90e0c3e8-ec1c-4dc8-9cd6-467091d4dfa0",
+    "email": "joseph.rodriguez@mailinator.com",
+    "profile_role": "system_admin"
+  },
+  {
+    "id": "8a350d64-77aa-4c4e-a5a9-ef4e88cd012c",
+    "email": "barbara.jones@mailinator.com",
+    "profile_role": "system_admin"
+  },
+  {
+    "id": "a51d4c6f-fe9f-44d0-b03a-f8dccf576a69",
+    "email": "james.jones@mailinator.com",
+    "profile_role": "system_admin"
+  },
+  {
+    "id": "b543cce4-d0c8-4df0-9cc3-046f82550034",
+    "email": "naveen@mailinator.com",
+    "profile_role": "system_admin",
+    "metadata_role": "super_admin"
+  },
+  {
+    "id": "6bc53f52-e3cf-4864-b567-8e7d543a97e7",
+    "email": "naveentyagi11@gmail.com",
+    "profile_role": "system_admin"
+  }
+]
