@@ -1,48 +1,55 @@
-
 # Database Migration Scripts
 
-This directory contains the SQL scripts used to build and maintain the application database.
+This directory contains the consolidated database scripts for the ACA-1095 Builder application.
+All legacy scripts have been merged into these 5 core files to ensure a single source of truth and simplify deployment.
 
-## 🟢 Critical / Active Scripts
-These scripts form the core of the current database schema.
+## Consolidated File Structure
 
-| Script | Description | Status |
-| :--- | :--- | :--- |
-| `001-create-schema.sql` | Base Core Schema (Company Details, Employees, etc.) | **Base** |
-| `002-create-stored-procedures.sql` | Base RPC Functions | **Base** |
-| `003-update-schema.sql` | Schema updates (Phase 1) | Applied |
-| `004-create-aca-interim-tables.sql` | ACA Reporting Tables | Applied |
-| `006-fix-interim-generation-date-handling.sql` | Fix date handling | Applied |
-| `008-update-interim-logic.sql` | Update logic | Applied |
-| `009-create-aca-final-report.sql` | Final Report Tables | Applied |
-| `011-create-penalty-report.sql` | Penalty Report Tables | Applied |
-| `013-profiles-schema.sql` | **Profiles (User Roles)** Schema | **Active** |
-| `014-rls-policies.sql` | Row Level Security Policies | Applied |
-| `016-robust-import-schema.sql` | **Major Import System Upgrade** (Audit columns, RPCs) | **Active** |
-| `017-add-company-status.sql` | Adds Active/Inactive to Company | **Active** |
-| `019-create-company-module.sql` | **Company Modules** (Singular table name) and RLS | **Active** |
-| `100-fix-infinite-recursion.sql` | Fixes RLS infinite loop bug | **Critical Fix** |
-| `101-backfill-profiles.sql` | Backfills user profiles | Data Fix |
-| `102-add-missing-constraints.sql` | Adds Unique Constraints to all import tables | **Critical Schema** |
-| `104-fix-import-functions.sql` | **Import Fix** (Consolidated Import Functions) | **Critical Fix** |
-| `105-fix-aca-generation.sql` | **ACA Report Fix** (Bypasses RLS for generation) | **Critical Fix** |
-| `106-fix-profile-trigger.sql` | **Invite Fix** (Handles duplicate profiles) | **Critical Fix** |
+The scripts are numbered to be executed in order:
 
-## 🔴 Obsolete / Safe to Delete (Useless)
-These scripts have been superseded by newer scripts or were temporary.
+### 1. `001-core-schema.sql`
+- **Purpose**: Defines the foundational database structure.
+- **Contents**:
+  - Core tables: `company_details`, `profiles` (extending Auth), `user_company_mapping`.
+  - Business tables: `plan_master`, `employee_census`, `employee_address`, `employee_waiting_period`, `employee_plan_eligibility`, `employee_plan_enrollment`, `employee_dependent`, `plan_enrollment_cost`, `payroll_hours`.
+  - Indexes and constraints used by the application.
 
-| Script | Reason for Deletion |
-| :--- | :--- |
-| `004-manage-company-schema.sql` | **CONFLICT:** Defines `company_modules` (plural), but the app uses `company_module` (singular) from script `019`. |
-| `006-cleanup-functions.sql` | **SUPERSEDED:** Script `104` drops and recreates the functions this script tried to clean up. |
-| `103-fix-payroll-upsert.sql` | **SUPERSEDED:** Merged into script `104`. |
-| `016-cleanup.sql` | **OLD DUMP:** Superseded by `016-robust-import-schema.sql`. |
+### 2. `002-reporting-schema.sql`
+- **Purpose**: Defines tables specifically for ACA reporting and generation.
+- **Contents**:
+  - `aca_employee_monthly_status`
+  - `aca_employee_monthly_offer`
+  - `aca_employee_monthly_enrollment`
+  - `aca_final_report`
+  - `aca_penalty_report`
 
-## 🟡 Historic / Archive (Keep for reference or delete if bold)
-- `005-fix-and-multi-admin.sql`
-- `007-drop-all-foreign-key-constraints.sql`
-- `010-update-plan-master-schema.sql`
-- `012-add-email-to-census.sql`
-- `013-b-ensure-prerequisites.sql`
-- `018-add-company-to-profiles.sql` (Likely patch for 013)
-- `999-cleanup-schema.sql` (Utility to reset DB)
+### 3. `003-access-control.sql`
+- **Purpose**: Manages security and access policies.
+- **Contents**:
+  - Helper functions: `is_system_admin()`, `has_company_access()`.
+  - Row Level Security (RLS) policies for all core tables to separate multi-tenant data (by `company_code`).
+  - Access grants for specific roles.
+
+### 4. `004-consolidated-functions.sql`
+- **Purpose**: Contains all Stored Procedures and Triggers.
+- **Contents**:
+  - **User Management**: `handle_new_user()` trigger for automated profile creation and role assignment.
+  - **Data Import (Upserts)**: Robust `upsert_*` functions for bulk data loading (Census, Plans, Enrollment, etc.), handling conflicts and updates safely.
+  - **ACA Logic**: 
+    - `generate_aca_monthly_interim()`: V2 logic for calculating monthly codes based on census data.
+    - `generate_aca_final_report()`: Generates 1095-C line codes (14, 15, 16).
+    - `generate_aca_penalties()`: Calculates potential employer penalties.
+
+### 5. `005-seed-data.sql`
+- **Purpose**: Initial data population for testing and development.
+- **Contents**:
+  - Setup for test company (e.g., Company 202).
+  - Setup for initial admin users (System Admin, Employer Admin).
+  - Sample configurations.
+
+## Usage
+
+To initialize a fresh database, execute the scripts in numerical order (001 -> 005) in the Supabase SQL Editor.
+
+## Legacy Scripts
+All previous scripts (100-series patches, old 000-series fragments) have been consolidated into these files and deleted to maintain a clean workspace.

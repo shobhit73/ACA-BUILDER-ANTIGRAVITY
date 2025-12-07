@@ -98,6 +98,9 @@ A comprehensive Next.js application for managing IRS Form 1095-C compliance. Thi
 
 ---
 
-## 📄 References
+## 📄 Documentation
 
-- **PDF Field Mapping**: See `PDF_FIELD_REFERENCE.md` for detailed coordinate mappings of the 1095-C form.
+-   [**System Architecture**](docs/ARCHITECTURE.md): High-level overview of RBAC, Modules, and PDF generation.
+-   [**API Reference**](docs/API_REFERENCE.md): Detailed usage of backend API routes.
+-   [**Database Scripts**](scripts/README.md): Guide to SQL migration scripts.
+-   **PDF Field Mapping**: See `PDF_FIELD_REFERENCE.md` for coordinate mappings.

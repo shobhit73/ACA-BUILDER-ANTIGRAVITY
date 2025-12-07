@@ -52,12 +52,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: data.error || "Unknown logic error" }, { status: 500 })
         }
 
+        console.log("[ACA Report] Final Report Success. Returning JSON.")
+
         return NextResponse.json({
             success: true,
             data,
         })
     } catch (error: any) {
-        console.error("[ACA Report] Unexpected error:", error)
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+        console.error("[ACA Report] Unexpected CRASH in API Route:", error)
+        return NextResponse.json({ success: false, error: error.message || "Unknown Server Error" }, { status: 500 })
     }
 }

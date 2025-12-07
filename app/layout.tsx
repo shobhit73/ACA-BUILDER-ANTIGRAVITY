@@ -1,4 +1,19 @@
 import type React from "react"
+/**
+ * Root Layout
+ * 
+ * The top-level layout component for the entire application.
+ * 
+ * Responsibilities:
+ * 1. **Global Styles**: Imports globals.css (Tailwind/Theme).
+ * 2. **Font Optimization**: Configures 'Inter' font via next/font.
+ * 3. **Providers**: Wraps the app in:
+ *    - `Toaster`: For toast notifications (Sonner).
+ *    - `TooltipProvider`: For UI tooltips.
+ * 
+ * Note: RLS and Auth checks happen in Middleware and Page/Action layers,
+ * but this layout ensures all pages inherit the same base UI context.
+ */
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"

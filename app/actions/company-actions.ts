@@ -36,18 +36,12 @@ export async function getCompanyDetails(companyCode: string) {
 
         if (companyError) throw new Error(companyError.message)
 
-        const { data: modules, error: modulesError } = await supabase
-            .from("company_module")
-            .select("module_code, is_enabled")
-            .eq("company_code", companyCode)
+        if (companyError) throw new Error(companyError.message)
 
-        if (modulesError) throw new Error(modulesError.message)
-
-        const activeModules = modules?.filter(m => m.is_enabled).map(m => m.module_code) || []
-
+        // Legacy table removed. Using array column directly.
         return {
             ...company,
-            modules: activeModules
+            modules: company.modules || []
         }
     } catch (error: any) {
         console.error("Error fetching company details:", error)
@@ -122,18 +116,6 @@ export async function updateCompany(companyCode: string, prevState: any, formDat
                 if (isEnabled) {
                     activeModules.push(moduleCode)
                 }
-
-                // Sync legacy/relational table
-                const { error: moduleError } = await supabase
-                    .from("company_module")
-                    .upsert({
-                        company_code: companyCode,
-                        module_code: moduleCode,
-                        is_enabled: isEnabled,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: "company_code, module_code" })
-
-                if (moduleError) console.error(`Error updating module ${moduleCode}:`, moduleError)
             }
 
             // Update Company Details (modules array only)
@@ -230,10 +212,7 @@ export async function createCompany(prevState: any, formData: FormData) {
             throw new Error(insertError.message)
         }
 
-        // Insert relational modules if any
-        if (moduleInserts.length > 0) {
-            await supabase.from("company_module").insert(moduleInserts)
-        }
+        /* Legacy module insert removed */
 
         revalidatePath("/settings/company")
         return { success: true, message: "Company created successfully" }

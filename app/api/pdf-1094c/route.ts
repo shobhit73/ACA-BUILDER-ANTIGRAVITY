@@ -7,6 +7,21 @@ import path from "path";
 // 1094-C PDF Generation API
 // Generates the Transmittal form using robust dynamic field mapping.
 
+interface CompanyDetails {
+    company_code: string;
+    company_name: string;
+    ein: string;
+    address_line_1: string;
+    city: string;
+    state: string;
+    zip_code: string;
+    contact_name: string;
+    contact_phone: string;
+    is_authoritative_transmittal: boolean;
+    is_agg_ale_group: boolean;
+    is_active: boolean;
+}
+
 export async function GET(req: NextRequest) {
     try {
         const supabase = await createClient();
@@ -19,15 +34,18 @@ export async function GET(req: NextRequest) {
         }
 
         // 1. Fetch Company Data
-        const { data: company, error: companyError } = await supabase
+        const { data: companyData, error: companyError } = await supabase
             .from("company_details")
             .select("*")
             .eq("company_code", companyCode)
             .single();
 
-        if (companyError || !company) {
+        if (companyError || !companyData) {
             return NextResponse.json({ error: "Company not found" }, { status: 404 });
         }
+
+        // Cast to interface to satisfy TS and ensure known shape
+        const company = companyData as unknown as CompanyDetails;
 
         // 2. Fetch Stats (Total 1095-Cs)
         const { count: totalForms } = await supabase

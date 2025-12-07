@@ -1,3 +1,15 @@
+/**
+ * Middleware: Authentication and Route Protection
+ * 
+ * This middleware runs on every request matched by the config matcher.
+ * 
+ * Core Responsibilities:
+ * 1. **Session Management**: Refreshes the Supabase session if expired.
+ * 2. **Authentication Check**: Redirects unauthenticated users to `/login`.
+ * 3. **Route Protection**:
+ *    - Allows public access to `/login`, `/auth`, `/reset-password`.
+ *    - Protects `/admin` routes (though precise RBAC is handled in page/layout).
+ */
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 

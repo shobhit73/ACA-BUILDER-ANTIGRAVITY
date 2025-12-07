@@ -3,12 +3,21 @@
 /**
  * Sidebar Component
  * 
- * Primary navigation component for the application.
- * Handles:
- * - User authentication state display
- * - Module-based navigation filtering (RBAC)
- * - Sub-menu rendering for complex modules
- * - Logout functionality
+ * The primary navigation component for the Dashboard.
+ * 
+ * Core Responsibilities:
+ * 1. **User Role Handling**: 
+ *    - Fetches the current user's role from `profiles` and `user_company_mapping`.
+ *    - Differentiates between 'System Admin', 'Employer Admin', and 'Employee'.
+ * 
+ * 2. **Module-Based Filtering**:
+ *    - For Company/Employer Admins, it fetches the `modules` array from `company_details`.
+ *    - Filters the navigation items (e.g., "Import Data", "ACA Report") based on which modules are active for the assigned company.
+ *    - If a user is mapped to multiple companies, it defaults to the primary one or handles switching context.
+ * 
+ * 3. **Dynamic Rendering**:
+ *    - System Admins see all administrative tools ("Companies", "System Users").
+ *    - Employer Admins see only company-specific tools authorized by their modules.
  */
 
 import { useState, useEffect } from "react"
